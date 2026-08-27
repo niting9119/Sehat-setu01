@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up — Sehat Setu</title>
+
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/views.css">
+  <style>
+    body {
+      background: var(--bg-app);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .minimal-signup-card {
+      max-width: 480px;
+      width: 100%;
+      margin: 2.25rem auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 2rem;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .role-select-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.4rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .role-btn {
+      padding: 0.5rem 0.25rem;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface-subtle);
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-align: center;
+      transition: all var(--transition-fast);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+    }
+
+    .role-btn:hover {
+      border-color: var(--border-medium);
+      color: var(--text-main);
+    }
+
+    .role-btn.active-citizen {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--accent-emerald);
+      color: var(--accent-emerald);
+    }
+
+    .role-btn.active-doctor {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    .role-btn.active-asha {
+      background: rgba(168, 85, 247, 0.15);
+      border-color: var(--accent-purple);
+      color: var(--accent-purple);
+    }
+
+    .role-btn.active-admin {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: var(--accent-red);
+      color: var(--accent-red);
+    }
+
+    .btn-google {
+      width: 100%;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-medium);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.65rem;
+      padding: 0.65rem 1rem;
+      border-radius: var(--radius-md);
+      font-weight: 600;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      box-shadow: var(--shadow-xs);
+    }
+
+    .btn-google:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+
+    .divider-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin: 1.15rem 0;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .divider-row::before,
+    .divider-row::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border-subtle);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="app-header" style="top: 0;">
+    <div class="container nav-container">
+      <a href="index.html" class="brand-logo">
+        <div class="brand-logo-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path
+              d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+            <path d="M12 5v14" />
+            <path d="M5 12h14" />
+          </svg>
+        </div>
+        <div>
+          <span>Sehat Setu</span>
+          <span class="brand-subtitle">Health Monitoring</span>
+        </div>
+      </a>
+
+      <div class="header-actions">
+        <a href="login.html" class="btn btn-sm btn-outline">Log In</a>
+        <button class="icon-btn" title="Toggle Theme" onclick="window.SehatState.toggleTheme()">🌓</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sign Up Form -->
+  <main class="container" style="flex: 1; display: flex; align-items: center; justify-content: center;">
+    <div class="minimal-signup-card">
+      <div style="text-align: center; margin-bottom: 1.25rem;">
+        <h2 style="font-size: 1.55rem; margin-bottom: 0.25rem;">Create Account</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">Quick registration for Sehat Setu</p>
+      </div>
+
+      <!-- Role Selection -->
+      <div class="role-select-bar">
+        <button type="button" class="role-btn active-citizen" data-role="citizen" onclick="setRole('citizen')">
+          <span>👤</span>
+          <span>Citizen</span>
+        </button>
+        <button type="button" class="role-btn" data-role="doctor" onclick="setRole('doctor')">
+          <span>🩺</span>
+          <span>Doctor</span>
+        </button>
+        <button type="button" class="role-btn" data-role="asha" onclick="setRole('asha')">
+          <span>👩‍⚕️</span>
+          <span>ASHA</span>
+        </button>
+        <button type="button" class="role-btn" data-role="admin" onclick="setRole('admin')">
+          <span>🏛️</span>
+          <span>Admin</span>
+        </button>
+      </div>
+
+      <!-- Google / Gmail OAuth Button -->
+      <button type="button" class="btn-google" onclick="signupWithGoogleOAuth()">
+        <svg width="18" height="18" viewBox="0 0 24 24">
+          <path fill="#4285F4"
+            d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z" />
+          <path fill="#34A853"
+            d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z" />
+          <path fill="#FBBC05"
+            d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.04 0 12s.45 3.82 1.25 5.42l4.03-3.15z" />
+          <path fill="#EA4335"
+            d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
+        </svg>
+        <span id="google-signup-text">Sign up with Google (Gmail)</span>
+      </button>
+
+      <div class="divider-row">or fill details</div>
+
+      <form id="signup-form">
+        <input type="hidden" id="signup-role" value="citizen">
+
+        <!-- Common Fields: Name, Mobile, Email -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="reg-name">Full Name *</label>
+            <input type="text" id="reg-name" class="form-control" placeholder="e.g. Vikas Sharma" value="Vikas Sharma"
+              minlength="2" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="reg-mobile">Mobile Number *</label>
+            <input type="tel" id="reg-mobile" class="form-control" placeholder="+91 98765 00000" value="+91 98765 11223"
+              required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-email">Email Address (Mandatory) *</label>
+          <input type="email" id="reg-email" class="form-control" placeholder="e.g. vikas.sharma@example.com"
+            value="vikas.sharma@example.com" required>
+        </div>
+
+        <!-- Citizen Specific Fields -->
+        <div id="citizen-fields">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="reg-age">Age / Date of Birth *</label>
+              <input type="text" id="reg-age" class="form-control" placeholder="e.g. 32 or 14/08/1994" value="32">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="reg-gender">Gender *</label>
+              <select id="reg-gender" class="form-control">
+                <option value="Male" selected>Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="reg-ward">Surveillance Ward / Address *</label>
+              <select id="reg-ward" class="form-control">
+                <option value="Zone C" selected>Zone C (North Ward)</option>
+                <option value="Zone A">Zone A (South Green)</option>
+                <option value="Zone B">Zone B (East Lake)</option>
+                <option value="Zone D">Zone D (West Belt)</option>
+                <option value="Zone E">Zone E (Railway Col.)</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="reg-family-id">Family ID *</label>
+              <input type="text" id="reg-family-id" class="form-control" placeholder="e.g. FAM-10284" value="FAM-10284">
+            </div>
+          </div>
+        </div>
+
+        <!-- Doctor Specific Fields -->
+        <div id="doctor-fields"
+          style="display: none; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="reg-doc-num">Medical Reg. Number *</label>
+            <input type="text" id="reg-doc-num" class="form-control" placeholder="e.g. MCI/DMC-94820" value="MCI/DMC-94820">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="reg-specialty">Specialization *</label>
+            <input type="text" id="reg-specialty" class="form-control" placeholder="e.g. General Medicine" value="General Medicine">
+          </div>
+          <div class="form-group" style="grid-column: span 2; margin-bottom: 0;">
+            <label class="form-label" for="reg-facility">Hospital / Clinic *</label>
+            <input type="text" id="reg-facility" class="form-control" placeholder="e.g. UCHC-4 Community Hospital" value="UCHC-4 Community Hospital">
+          </div>
+        </div>
+
+        <!-- ASHA Specific Fields -->
+        <div id="asha-fields"
+          style="display: none; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="reg-badge">ASHA Worker ID *</label>
+            <input type="text" id="reg-badge" class="form-control" placeholder="e.g. ASHA-DEL-ZN3-205" value="ASHA-DEL-ZN3-205">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="reg-area">Assigned Area / Ward *</label>
+            <input type="text" id="reg-area" class="form-control" placeholder="e.g. Zone C" value="Zone C">
+          </div>
+        </div>
+
+        <!-- Admin Specific Fields -->
+        <div id="admin-fields" style="display: none; margin-bottom: 0.75rem;">
+          <div class="form-group" style="margin-bottom: 0.75rem;">
+            <label class="form-label" for="reg-dept">Surveillance Department *</label>
+            <input type="text" id="reg-dept" class="form-control" placeholder="e.g. District Surveillance Unit" value="District Surveillance Unit">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="reg-invite">Admin Invitation Code *</label>
+            <input type="password" id="reg-invite" class="form-control" placeholder="Enter ADMIN2026 or system invite key">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-pass">Create Password *</label>
+          <input type="password" id="reg-pass" class="form-control" value="password123" minlength="8" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" style="padding: 0.75rem; margin-top: 0.85rem;" id="signup-submit-btn">
+          Create Citizen Account & Launch Dashboard →
+        </button>
+      </form>
+
+      <div style="text-align: center; margin-top: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
+        Already have an account? <a href="login.html" style="font-weight: 700; color: var(--primary-600);">Log In</a>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="js/state.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    let activeRole = 'citizen';
+
+    function setRole(role) {
+      activeRole = role;
+      document.querySelectorAll('.role-btn').forEach(btn => {
+        btn.classList.remove('active-citizen', 'active-doctor', 'active-asha', 'active-admin');
+        if (btn.getAttribute('data-role') === role) {
+          btn.classList.add(`active-${role}`);
+        }
+      });
+
+      const hiddenRole = document.getElementById('signup-role');
+      const googleText = document.getElementById('google-signup-text');
+      const submitBtn = document.getElementById('signup-submit-btn');
+      hiddenRole.value = role;
+
+      const roleDisplay = role === 'citizen' ? 'Citizen' : role === 'doctor' ? 'Doctor' : role === 'asha' ? 'ASHA Worker' : 'Authority / Admin';
+      googleText.textContent = `Sign up with Google as ${roleDisplay}`;
+      submitBtn.textContent = `Create ${roleDisplay} Account & Launch Dashboard →`;
+
+      document.getElementById('citizen-fields').style.display = role === 'citizen' ? 'block' : 'none';
+      document.getElementById('doctor-fields').style.display = role === 'doctor' ? 'grid' : 'none';
+      document.getElementById('asha-fields').style.display = role === 'asha' ? 'grid' : 'none';
+      document.getElementById('admin-fields').style.display = role === 'admin' ? 'block' : 'none';
+    }
+
+    function signupWithGoogleOAuth() {
+      window.location.href = `/auth/google?mode=signup&role=${encodeURIComponent(activeRole)}`;
+    }
+
+    document.getElementById('signup-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('reg-name').value;
+      const email = document.getElementById('reg-email').value;
+      const mobile = document.getElementById('reg-mobile').value;
+      const pass = document.getElementById('reg-pass').value;
+
+      const formData = {
+        name,
+        email,
+        mobile,
+        password: pass,
+        role: activeRole
+      };
+
+      if (activeRole === 'citizen') {
+        formData.age = document.getElementById('reg-age').value;
+        formData.gender = document.getElementById('reg-gender').value;
+        formData.ward = document.getElementById('reg-ward').value;
+        formData.familyId = document.getElementById('reg-family-id').value;
+      } else if (activeRole === 'doctor') {
+        formData.regNumber = document.getElementById('reg-doc-num').value;
+        formData.specialty = document.getElementById('reg-specialty').value;
+        formData.facility = document.getElementById('reg-facility').value;
+      } else if (activeRole === 'asha') {
+        formData.badgeId = document.getElementById('reg-badge').value;
+        formData.area = document.getElementById('reg-area').value;
+      } else if (activeRole === 'admin') {
+        formData.department = document.getElementById('reg-dept').value;
+        formData.adminInviteCode = document.getElementById('reg-invite').value;
+      }
+
+      fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(formData)
+      })
+        .then(async response => {
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Registration failed');
+          return data;
+        })
+        .then(session => {
+          window.SehatState.hydrateGoogleSession(session);
+          window.SehatUI.showToast('Account Created', `Welcome ${name}! Launching ${session.role.toUpperCase()} dashboard...`, 'success');
+          setTimeout(() => {
+            window.location.href = `index.html#/${session.role}/dashboard`;
+          }, 400);
+        })
+        .catch(error => window.SehatUI.showToast('Signup Failed', error.message, 'warning'));
+    });
+  </script>
+</body>
+
+</html>

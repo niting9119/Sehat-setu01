@@ -1,0 +1,1001 @@
+/* ==========================================================================
+   Sehat Setu — Multi-Color Views, Auth & User Profile Layouts
+   ========================================================================== */
+
+/* 1. LANDING VIEW */
+.hero-section {
+  padding: 4.5rem 0 3.5rem;
+  text-align: center;
+  position: relative;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, var(--primary-50), rgba(16, 185, 129, 0.15));
+  border: 1px solid var(--primary-300);
+  color: var(--primary-900);
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 1.75rem;
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.15);
+}
+
+[data-theme="dark"] .hero-badge {
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.2), rgba(16, 185, 129, 0.15));
+  border-color: var(--primary-700);
+  color: var(--primary-200);
+}
+
+.hero-title {
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1.15;
+  max-width: 900px;
+  margin: 0 auto 1.35rem;
+}
+
+.hero-title .gradient-text {
+  background: var(--grad-hero);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero-subtitle {
+  font-size: 1.2rem;
+  max-width: 720px;
+  margin: 0 auto 2.25rem;
+  color: var(--text-muted);
+}
+
+.hero-cta-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 3.5rem;
+}
+
+/* Role Launchpad Cards */
+.role-launchpad-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.35rem;
+  margin-top: 2.5rem;
+}
+
+.launchpad-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 1.75rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.launchpad-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+}
+
+.launchpad-card.card-citizen::before { background: var(--role-citizen); }
+.launchpad-card.card-doctor::before { background: var(--role-doctor); }
+.launchpad-card.card-asha::before { background: var(--role-asha); }
+.launchpad-card.card-admin::before { background: var(--role-admin); }
+
+.launchpad-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.launchpad-card.card-citizen:hover { border-color: var(--role-citizen); }
+.launchpad-card.card-doctor:hover { border-color: var(--role-doctor); }
+.launchpad-card.card-asha:hover { border-color: var(--role-asha); }
+.launchpad-card.card-admin:hover { border-color: var(--role-admin); }
+
+.launchpad-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  margin-bottom: 1.15rem;
+}
+
+.card-citizen .launchpad-card-icon { background: rgba(16, 185, 129, 0.15); color: var(--role-citizen); }
+.card-doctor .launchpad-card-icon { background: rgba(59, 130, 246, 0.15); color: var(--role-doctor); }
+.card-asha .launchpad-card-icon { background: rgba(168, 85, 247, 0.15); color: var(--role-asha); }
+.card-admin .launchpad-card-icon { background: rgba(239, 68, 68, 0.15); color: var(--role-admin); }
+
+.launchpad-card h3 {
+  font-size: 1.15rem;
+  margin-bottom: 0.45rem;
+}
+
+.launchpad-card p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 1.35rem;
+}
+
+.launchpad-card-footer {
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.card-citizen .launchpad-card-footer { color: var(--role-citizen); }
+.card-doctor .launchpad-card-footer { color: var(--role-doctor); }
+.card-asha .launchpad-card-footer { color: var(--role-asha); }
+.card-admin .launchpad-card-footer { color: var(--role-admin); }
+
+/* 2. AUTHENTICATION VIEW (LOGIN & SIGN UP) */
+.auth-wrapper {
+  padding: 3rem 1.25rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: calc(100vh - 120px);
+}
+
+.auth-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  max-width: 580px;
+  width: 100%;
+  padding: 2.25rem;
+  box-shadow: var(--shadow-xl);
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.auth-header h2 {
+  font-size: 1.65rem;
+  margin-bottom: 0.35rem;
+}
+
+.auth-mode-tabs {
+  display: flex;
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.auth-mode-tab {
+  flex: 1;
+  text-align: center;
+  padding: 0.55rem;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.auth-mode-tab.active {
+  background: var(--bg-surface);
+  color: var(--primary-700);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="dark"] .auth-mode-tab.active {
+  color: var(--primary-300);
+}
+
+.auth-role-pills {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.auth-role-pill {
+  padding: 0.55rem 0.35rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-subtle);
+  text-align: center;
+  font-size: 0.775rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.auth-role-pill:hover {
+  border-color: var(--border-medium);
+  color: var(--text-main);
+}
+
+.auth-role-pill.active-citizen {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--accent-emerald);
+  color: var(--accent-emerald);
+}
+
+.auth-role-pill.active-doctor {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.auth-role-pill.active-asha {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+}
+
+.btn-google {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-xs);
+}
+.btn-google:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+/* =========================================================================
+   PHOTO UPLOAD DROPZONES & THUMBNAILS
+   ========================================================================= */
+.photo-upload-dropzone {
+  border: 2px dashed var(--border-medium);
+  background: var(--bg-surface-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+.photo-upload-dropzone:hover, .photo-upload-dropzone.dragover {
+  border-color: var(--primary-500);
+  background: rgba(13, 148, 136, 0.05);
+}
+.photo-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+.photo-thumb-card {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  aspect-ratio: 1;
+  background: var(--bg-surface);
+}
+.photo-thumb-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.photo-thumb-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  cursor: pointer;
+}
+.photo-thumb-remove:hover {
+  background: var(--risk-high-border);
+}
+
+/* =========================================================================
+   MEDICAL RECORDS HUB & FILTER CARDS
+   ========================================================================= */
+.records-filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+.records-filter-tab {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+.records-filter-tab.active {
+  background: var(--primary-600);
+  border-color: var(--primary-600);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+}
+.medical-record-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 1.35rem;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.medical-record-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-medium);
+}
+.record-attachment-box {
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.record-attachment-img {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1px solid var(--border-subtle);
+}
+
+/* =========================================================================
+   AVATAR PROFILE PHOTO UPLOADER
+   ========================================================================= */
+.profile-avatar-wrapper {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+.profile-avatar-wrapper:hover .avatar-upload-overlay {
+  opacity: 1;
+}
+.avatar-upload-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+
+
+.demo-quick-login-box {
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.08) 0%, rgba(6, 182, 212, 0.05) 100%);
+  border: 1px dashed var(--primary-400);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.demo-quick-login-box h4 {
+  font-size: 0.825rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--primary-700);
+  margin-bottom: 0.5rem;
+}
+
+[data-theme="dark"] .demo-quick-login-box h4 {
+  color: var(--primary-300);
+}
+
+.demo-quick-btns {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.demo-quick-btn {
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.775rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all var(--transition-fast);
+}
+
+.demo-quick-btn:hover {
+  border-color: var(--primary-600);
+  transform: translateY(-1px);
+}
+
+/* 3. USER PROFILE VIEW */
+.profile-container {
+  max-width: 920px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.profile-hero {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.profile-avatar-xl {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: var(--shadow-md);
+}
+
+.profile-meta-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+}
+
+.profile-field-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.9rem;
+}
+
+.profile-field-label {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.profile-field-value {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.abha-badge {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(99, 102, 241, 0.1) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #2563eb;
+}
+
+[data-theme="dark"] .abha-badge {
+  color: #60a5fa;
+}
+
+/* 4. GENERAL SHELL & ROLE DASHBOARDS */
+.portal-layout {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  min-height: calc(100vh - 110px);
+}
+
+.portal-sidebar {
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  padding: 1.75rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.portal-user-badge {
+  padding: 1rem;
+  background: var(--bg-surface-subtle);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.portal-user-badge:hover {
+  border-color: var(--primary-400);
+}
+
+.portal-user-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--primary-600);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.portal-user-details h4 {
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.portal-user-details span {
+  font-family: var(--font-mono);
+  font-size: 0.775rem;
+  color: var(--text-muted);
+}
+
+.portal-nav-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.portal-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.portal-nav-item:hover {
+  background: var(--bg-surface-subtle);
+  color: var(--text-main);
+}
+
+.portal-nav-item.active {
+  background: linear-gradient(135deg, var(--primary-50), rgba(16, 185, 129, 0.12));
+  color: var(--primary-800);
+  font-weight: 700;
+}
+
+[data-theme="dark"] .portal-nav-item.active {
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.2), rgba(16, 185, 129, 0.15));
+  color: var(--primary-200);
+}
+
+.portal-content {
+  padding: 2.25rem;
+  background: var(--bg-app);
+}
+
+.portal-header-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  gap: 1rem;
+}
+
+/* Citizen Specific Banner */
+.citizen-status-banner {
+  background: var(--grad-citizen);
+  color: #ffffff;
+  border-radius: var(--radius-xl);
+  padding: 1.85rem 2.25rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  overflow: hidden;
+}
+
+.citizen-status-banner::after {
+  content: "";
+  position: absolute;
+  right: -20px;
+  bottom: -30px;
+  width: 190px;
+  height: 190px;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.25) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.citizen-greeting h2 {
+  color: #ffffff;
+  font-size: 1.65rem;
+  margin-bottom: 0.4rem;
+}
+
+.citizen-ids {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.825rem;
+  color: var(--primary-200);
+}
+
+/* Patient Table */
+.patient-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.patient-table th {
+  text-align: left;
+  padding: 0.85rem 1.15rem;
+  background: var(--bg-surface-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.patient-table td {
+  padding: 0.95rem 1.15rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.patient-row {
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.patient-row:hover {
+  background: var(--bg-surface-hover);
+}
+
+/* ASHA Portal Styles */
+.asha-mobile-container {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.asha-area-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.85rem;
+  margin-bottom: 1.35rem;
+}
+
+.asha-zone-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.followup-task-item {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.15rem;
+  margin-bottom: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: all var(--transition-fast);
+}
+
+.followup-task-item:hover {
+  border-color: var(--primary-400);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Admin Command */
+.command-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.15rem;
+  margin-bottom: 2rem;
+}
+
+.map-card-wrapper {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 2rem;
+}
+
+.map-toolbar {
+  padding: 0.95rem 1.35rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface-subtle);
+}
+
+.map-container {
+  height: 440px;
+  width: 100%;
+  position: relative;
+  background: #0b1320;
+}
+
+.zone-interactive-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  padding: 1.35rem;
+}
+
+.zone-tile {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.15rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.zone-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.zone-tile.zone-high {
+  border-color: var(--risk-high-border);
+  background: var(--risk-high-bg);
+}
+
+.zone-tile.zone-watch {
+  border-color: var(--risk-watch-border);
+  background: var(--risk-watch-bg);
+}
+
+/* Explainable AI */
+.xai-panel {
+  background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-surface-subtle) 100%);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-xl);
+  padding: 1.75rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.xai-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 2rem;
+  align-items: center;
+}
+
+.xai-signals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.xai-signal-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: var(--bg-surface);
+  padding: 0.85rem 1.15rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.875rem;
+}
+
+.xai-signal-item.verified {
+  border-left: 4px solid var(--risk-high-border);
+}
+
+.xai-signal-icon {
+  color: var(--risk-high-text);
+  font-size: 1.1rem;
+  margin-top: 0.1rem;
+}
+
+.environmental-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(99, 102, 241, 0.05) 100%);
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  border-radius: var(--radius-lg);
+  padding: 1.15rem;
+  margin-top: 1.25rem;
+}
+
+.env-metric {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.env-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: rgba(6, 182, 212, 0.15);
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+@media (max-width: 960px) {
+  .portal-layout {
+    grid-template-columns: 1fr;
+  }
+  .portal-sidebar {
+    display: none;
+  }
+  .portal-content {
+    padding: 1.35rem;
+  }
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+  .hero-title {
+    font-size: 2.15rem;
+  }
+}
+
+/* =========================================================================
+   HEALTHCARE PUBLIC ADVERTISEMENT & GOVERNMENT SCHEME BANNER STRIP
+   ========================================================================= */
+.healthcare-ad-strip {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 1.25rem 1.5rem;
+  margin: 1.5rem 0 1rem;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  border-top: 3px solid var(--primary-500);
+  transition: all var(--transition-normal);
+}
+
+.healthcare-ad-strip:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-medium);
+}
+
+.ad-badge-gov {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--accent-emerald);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.ad-badge-hospital {
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--accent-blue);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.ad-badge-pharma {
+  background: rgba(168, 85, 247, 0.12);
+  color: var(--accent-purple);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.ad-badge-alert {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--accent-amber);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.ad-badge-blood {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--accent-red);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.ad-main-layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .ad-main-layout {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+

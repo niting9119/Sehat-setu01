@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sehat Setu — Smart Community Health Monitoring & Early Warning System</title>
+
+  <!-- Typography (Archivo + Inter + IBM Plex Mono) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <!-- Application Stylesheets -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/views.css">
+  <style>
+    html.auth-loading #app {
+      visibility: hidden;
+    }
+  </style>
+  <script>document.documentElement.classList.add('auth-loading');</script>
+</head>
+
+<body>
+  <div id="app">
+    <!-- Top Fixed Hackathon Demo Stepper -->
+    <div id="demo-stepper-container" class="demo-stepper-bar">
+      <!-- Injected by demo-flow.js -->
+    </div>
+
+    <!-- Application Header -->
+    <header class="app-header">
+      <div class="container nav-container">
+        <!-- Logo -->
+        <a href="javascript:void(0)" class="brand-logo" onclick="window.SehatState.setRole('landing')">
+          <div class="brand-logo-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path
+                d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+          </div>
+          <div>
+            <span>Sehat Setu</span>
+            <span class="brand-subtitle">Smart Community Health Monitoring</span>
+          </div>
+        </a>
+
+        <!-- Role Switcher Nav Pills -->
+        <div class="role-pill-nav">
+          <button class="role-pill-btn" data-role="landing" onclick="window.SehatState.setRole('landing')">
+            🏠 Overview
+          </button>
+          <button class="role-pill-btn" data-role="citizen" onclick="window.SehatState.setRole('citizen')">
+            👤 Citizen
+          </button>
+          <button class="role-pill-btn" data-role="doctor" onclick="window.SehatState.setRole('doctor')">
+            🩺 Doctor
+          </button>
+          <button class="role-pill-btn" data-role="asha" onclick="window.SehatState.setRole('asha')">
+            👩‍⚕️ ASHA
+          </button>
+          <button class="role-pill-btn" data-role="admin" onclick="window.SehatState.setRole('admin')">
+            🏛️ Authority / Admin
+          </button>
+        </div>
+
+        <!-- Header Actions (Auth, Profile & Theme) -->
+        <div class="header-actions">
+          <div id="header-auth-container" style="display: flex; align-items: center; gap: 0.5rem;"></div>
+          <button class="icon-btn" title="Toggle Light/Dark Theme" onclick="window.SehatState.toggleTheme()">
+            🌓
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Dynamic View Container -->
+    <main id="app-main" class="app-main">
+      <!-- Dynamic View Injected by js/app.js -->
+    </main>
+
+    <!-- Application Dynamic Footer / Ad Space -->
+    <footer class="app-footer" id="app-dynamic-footer">
+      <!-- Injected dynamically by js/app.js -->
+    </footer>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- MODAL 1: Zone Risk Details Modal -->
+  <div id="modal-zone-detail" class="modal-backdrop">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="zone-modal-title" style="font-size: 1.1rem;">Zone Risk Intelligence Profile</h3>
+        <button class="icon-btn" onclick="window.SehatUI.closeModal('modal-zone-detail')">✕</button>
+      </div>
+      <div id="zone-modal-body" class="modal-body">
+        <!-- Injected dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="window.SehatUI.closeModal('modal-zone-detail')">Close</button>
+        <button class="btn btn-primary"
+          onclick="window.SehatUI.closeModal('modal-zone-detail'); window.SehatState.setRole('asha', 'warnings');">
+          ASHA Verification →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Doctor Consultation Modal -->
+  <div id="modal-doctor-consultation" class="modal-backdrop">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="consult-patient-title" style="font-size: 1.1rem;">Record Clinical Consultation</h3>
+        <button class="icon-btn" onclick="window.SehatUI.closeModal('modal-doctor-consultation')">✕</button>
+      </div>
+      <form id="doctor-consult-form">
+        <div class="modal-body">
+          <input type="hidden" id="consult-patient-id" value="C10291">
+          <div id="consult-patient-details"></div>
+
+          <div class="form-group">
+            <label class="form-label">Clinical Assessment & Observations</label>
+            <textarea id="consult-clinical-notes" class="form-control" rows="3" required
+              placeholder="Document clinical findings, vital signs, symptom trajectory..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Clinical Advice & Patient Care Instructions</label>
+            <input type="text" id="consult-advice" class="form-control"
+              value="Strict ORS hydration therapy, rest, paracetamol TDS as required." required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Next Scheduled Follow-up Date</label>
+            <input type="text" id="consult-followup-date" class="form-control" value="24 August" required>
+          </div>
+
+          <div class="privacy-banner">
+            <span>ℹ️ Submitting updates the Citizen's Health Timeline and logs the clinical consultation into the
+              surveillance database.</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary"
+            onclick="window.SehatUI.closeModal('modal-doctor-consultation')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save & Sync Timeline</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 3: ASHA Field Verification Modal -->
+  <div id="modal-asha-verification" class="modal-backdrop">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="verify-zone-title" style="font-size: 1.1rem;">ASHA Early Warning Field Verification</h3>
+        <button class="icon-btn" onclick="window.SehatUI.closeModal('modal-asha-verification')">✕</button>
+      </div>
+      <form id="asha-verify-form">
+        <div class="modal-body">
+          <input type="hidden" id="verify-zone-id" value="Zone C">
+
+          <div class="form-group">
+            <label class="form-label">Field Verification Outcome</label>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.35rem;">
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; cursor: pointer;">
+                <input type="radio" name="verify-outcome" value="Signal Verified" checked>
+                <strong>✓ Signal Verified</strong> (Abnormal pattern confirmed in field survey)
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; cursor: pointer;">
+                <input type="radio" name="verify-outcome" value="Normal Variation">
+                <strong>○ Normal Variation</strong> (Expected seasonal fluctuation)
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; cursor: pointer;">
+                <input type="radio" name="verify-outcome" value="Insufficient Information">
+                <strong>○ Insufficient Information</strong> (Further sampling needed)
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; cursor: pointer;">
+                <input type="radio" name="verify-outcome" value="Further Follow-up Required">
+                <strong>○ Further Follow-up Required</strong> (Requires medical officer visit)
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Field Observation Notes</label>
+            <textarea id="verify-field-notes" class="form-control" rows="3" required
+              placeholder="E.g., Field check confirmed 5 households in Sector 9 reported gastrointestinal discomfort after localized water supply disruption..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Recommended Follow-up Status</label>
+            <select id="verify-followup-status" class="form-control">
+              <option value="High Priority Sanitation Intervention">High Priority Sanitation & Water Inspection Needed
+              </option>
+              <option value="Routine Surveillance">Routine Health Worker Surveillance</option>
+              <option value="Urgent Medical Camp">Urgent Primary Health Camp Deployment</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary"
+            onclick="window.SehatUI.closeModal('modal-asha-verification')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit Verification</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Leaflet Map JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Application Modules -->
+  <script src="js/state.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/demo-flow.js"></script>
+  <script src="js/router.js"></script>
+  <script>
+    window.SehatAuthReady = fetch('/api/auth/session', { credentials: 'same-origin' })
+      .then(response => response.json())
+      .then(session => {
+        if (session.authenticated) {
+          window.SehatState.hydrateGoogleSession(session);
+          window.SehatRouter.handleRouting();
+        } else {
+          window.SehatState.logout();
+          if (/^#\/(citizen|doctor|asha|admin)(\/|$)/.test(window.location.hash)) {
+            window.location.replace('login.html?authError=session_required');
+            return;
+          }
+        }
+        document.documentElement.classList.remove('auth-loading');
+      })
+      .catch(error => {
+        console.error('Authentication bootstrap failed:', error);
+        window.SehatState.logout();
+        window.location.replace('login.html?authError=session_required');
+      });
+  </script>
+  <script src="js/app.js"></script>
+  <script>window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);</script>
+</body>
+
+</html>

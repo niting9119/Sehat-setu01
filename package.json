@@ -1,0 +1,9 @@
+{
+  "name": "hackthon",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node hackfest/server.js",
+    "install:app": "npm --prefix hackfest install"
+  }
+}
