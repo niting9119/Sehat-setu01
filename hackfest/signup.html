@@ -244,21 +244,69 @@
               </select>
             </div>
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
-            <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label" for="reg-ward">Surveillance Ward / Address *</label>
-              <select id="reg-ward" class="form-control">
-                <option value="Zone C" selected>Zone C (North Ward)</option>
-                <option value="Zone A">Zone A (South Green)</option>
-                <option value="Zone B">Zone B (East Lake)</option>
-                <option value="Zone D">Zone D (West Belt)</option>
-                <option value="Zone E">Zone E (Railway Col.)</option>
-              </select>
+
+          <!-- Location Hierarchy (India -> State -> District -> Block) -->
+          <div style="background: var(--bg-surface-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.85rem; margin-bottom: 0.75rem;">
+            <div style="font-weight: 800; font-size: 0.75rem; margin-bottom: 0.5rem; color: var(--primary-700); text-transform: uppercase; display: flex; align-items: center; gap: 0.35rem;">
+              <span>📍</span> Administrative Location (India)
             </div>
-            <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label" for="reg-family-id">Family ID *</label>
-              <input type="text" id="reg-family-id" class="form-control" placeholder="e.g. FAM-10284" value="FAM-10284">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" style="font-size: 0.75rem;">Country</label>
+                <select id="reg-country" class="form-control" disabled style="background: var(--bg-surface);">
+                  <option value="India" selected>🇮🇳 India</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" style="font-size: 0.75rem;" for="reg-state">State / UT *</label>
+                <select id="reg-state" class="form-control" required>
+                  <option value="">Loading States...</option>
+                </select>
+              </div>
             </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" style="font-size: 0.75rem;" for="reg-district">District *</label>
+                <select id="reg-district" class="form-control" required disabled>
+                  <option value="">-- Select District --</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" style="font-size: 0.75rem;" for="reg-block">Block / Sub-District *</label>
+                <select id="reg-block" class="form-control" required disabled>
+                  <option value="">-- Select Block --</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Village / Town / Ward Dropdown (Exact same style as District & Block!) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" style="font-size: 0.75rem;" for="reg-area-type">Location Type *</label>
+                <select id="reg-area-type" class="form-control" onchange="handleAreaTypeDropdownChange(this.value)">
+                  <option value="village" selected>🏡 Village / Gram Panchayat</option>
+                  <option value="town">🏙️ Town / Urban Ward</option>
+                  <option value="custom">✍️ Other (Enter Manually)</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" style="font-size: 0.75rem;" id="village-town-select-label" for="reg-village-town-select">Village / Town / Ward *</label>
+                <select id="reg-village-town-select" class="form-control" onchange="handleVillageTownSelectChange(this.value)">
+                  <option value="">Loading Villages...</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Manual Custom Textbox (Only if custom selected) -->
+            <div id="manual-location-container" style="display: none; margin-top: 0.5rem;">
+              <label class="form-label" style="font-size: 0.75rem;" for="reg-custom-location">Enter Custom Village / Mohalla / Address *</label>
+              <input type="text" id="reg-custom-location" class="form-control" placeholder="e.g. Mohalla Shanti Nagar, Near Haswa Canal" oninput="handleManualLocationInput(this.value)">
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0.75rem;">
+            <label class="form-label" for="reg-family-id">Family ID *</label>
+            <input type="text" id="reg-family-id" class="form-control" placeholder="e.g. FAM-10284" value="FAM-10284">
           </div>
         </div>
 
@@ -323,9 +371,89 @@
   <div id="toast-container" class="toast-container"></div>
 
   <script src="js/state.js"></script>
+  <script src="js/locations.js"></script>
   <script src="js/ui.js"></script>
   <script>
     let activeRole = 'citizen';
+    let currentAreaType = 'village';
+
+    // Initialize with Uttar Pradesh -> Fatehpur -> Haswa
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (window.SehatLocations) {
+        await window.SehatLocations.bindLocationDropdowns({
+          stateSelectId: 'reg-state',
+          districtSelectId: 'reg-district',
+          blockSelectId: 'reg-block',
+          initial: { state: 'Uttar Pradesh', district: 'Fatehpur', block: 'Haswa' },
+          onBlockChange: (state, district, block) => {
+            populateVillageTownDropdown(state, district, block);
+          }
+        });
+
+        populateVillageTownDropdown('Uttar Pradesh', 'Fatehpur', 'Haswa');
+      }
+    });
+
+    function handleAreaTypeDropdownChange(type) {
+      currentAreaType = type;
+      const state = document.getElementById('reg-state')?.value || 'Uttar Pradesh';
+      const district = document.getElementById('reg-district')?.value || 'Fatehpur';
+      const block = document.getElementById('reg-block')?.value || 'Haswa';
+
+      const manualContainer = document.getElementById('manual-location-container');
+      const selectBox = document.getElementById('reg-village-town-select');
+      const label = document.getElementById('village-town-select-label');
+
+      if (type === 'custom') {
+        if (manualContainer) manualContainer.style.display = 'block';
+        if (selectBox) selectBox.disabled = true;
+        if (label) label.textContent = 'Custom Location';
+      } else {
+        if (manualContainer) manualContainer.style.display = 'none';
+        if (selectBox) selectBox.disabled = false;
+        if (label) label.textContent = type === 'village' ? 'Village Name *' : 'Town / Urban Area *';
+        populateVillageTownDropdown(state, district, block);
+      }
+    }
+
+    function populateVillageTownDropdown(state, district, block) {
+      const select = document.getElementById('reg-village-town-select');
+      if (!select || !window.SehatLocations) return;
+
+      let items = [];
+      if (currentAreaType === 'village') {
+        items = window.SehatLocations.getVillages(state, district, block);
+      } else if (currentAreaType === 'town') {
+        items = window.SehatLocations.getTowns(state, district);
+      }
+
+      if (!items || items.length === 0) {
+        select.innerHTML = '<option value="">-- No Location Found --</option>';
+        return;
+      }
+
+      select.innerHTML = items.map(name => `<option value="${name}">${name}</option>`).join('') +
+        '<option value="__custom__">✍️ Not listed? Enter manually</option>';
+
+      // Set initial value
+      select.value = items[0];
+    }
+
+    function handleVillageTownSelectChange(val) {
+      const manualContainer = document.getElementById('manual-location-container');
+      if (val === '__custom__') {
+        if (manualContainer) manualContainer.style.display = 'block';
+        const typeSelect = document.getElementById('reg-area-type');
+        if (typeSelect) typeSelect.value = 'custom';
+        currentAreaType = 'custom';
+      } else {
+        if (manualContainer) manualContainer.style.display = 'none';
+      }
+    }
+
+    function handleManualLocationInput(val) {
+      // Manual input updated
+    }
 
     function setRole(role) {
       activeRole = role;
@@ -362,19 +490,33 @@
       const mobile = document.getElementById('reg-mobile').value;
       const pass = document.getElementById('reg-pass').value;
 
+      const areaTypeVal = document.getElementById('reg-area-type')?.value || 'village';
+      const selectVal = document.getElementById('reg-village-town-select')?.value || '';
+      const customVal = document.getElementById('reg-custom-location')?.value || '';
+      const finalLocation = (areaTypeVal === 'custom' || selectVal === '__custom__') ? (customVal || 'Custom Address') : selectVal;
+
       const formData = {
         name,
         email,
         mobile,
         password: pass,
-        role: activeRole
+        role: activeRole,
+        country: 'India',
+        state: document.getElementById('reg-state')?.value || 'Uttar Pradesh',
+        district: document.getElementById('reg-district')?.value || 'Fatehpur',
+        block: document.getElementById('reg-block')?.value || 'Haswa'
       };
 
       if (activeRole === 'citizen') {
-        formData.age = document.getElementById('reg-age').value;
-        formData.gender = document.getElementById('reg-gender').value;
-        formData.ward = document.getElementById('reg-ward').value;
-        formData.familyId = document.getElementById('reg-family-id').value;
+        formData.age = document.getElementById('reg-age')?.value || '30';
+        formData.gender = document.getElementById('reg-gender')?.value || 'Male';
+        formData.areaType = areaTypeVal;
+        formData.village = areaTypeVal === 'village' ? finalLocation : null;
+        formData.town = areaTypeVal === 'town' ? finalLocation : null;
+        formData.customLocation = areaTypeVal === 'custom' ? finalLocation : null;
+        formData.ward = finalLocation || 'Haswa';
+        formData.address = finalLocation || 'Haswa';
+        formData.familyId = document.getElementById('reg-family-id')?.value || 'FAM-10284';
       } else if (activeRole === 'doctor') {
         formData.regNumber = document.getElementById('reg-doc-num').value;
         formData.specialty = document.getElementById('reg-specialty').value;

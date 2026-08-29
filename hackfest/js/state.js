@@ -869,7 +869,9 @@ class StateStore {
 
   saveState() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+      }
     } catch (e) {
       console.warn('Failed to persist state:', e);
     }
@@ -895,6 +897,15 @@ class StateStore {
         console.error('Listener notification error:', err);
       }
     });
+
+    // Realtime Live Event Broadcast
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/events/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: event, payload })
+      }).catch(() => {});
+    }
   }
 
   get currentUser() {
@@ -1271,6 +1282,15 @@ class StateStore {
     }
 
     this.notify('PROFILE_UPDATED', { user: this.state.currentUser });
+
+    // Sync to backend / database
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/user/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData)
+      }).catch(err => console.warn('Profile background sync notice:', err));
+    }
   }
 
   updateProfilePhoto(photoDataUrl) {
@@ -1290,10 +1310,102 @@ class StateStore {
     this.notify('AVATAR_UPDATED', { avatarUrl: photoDataUrl });
   }
 
+  // --- USER DATA ISOLATION GETTERS (For Fresh Clean Account on New Signup) ---
+  getUserFamily(user) {
+    if (!user) return this.state.family;
+    const isDemoRahul = user.id === 'C10291' || user.email === 'rahul.sharma@example.com';
+    if (isDemoRahul) return this.state.family;
+
+    if (!this.state.userFamilies) this.state.userFamilies = {};
+    if (!this.state.userFamilies[user.id]) {
+      this.state.userFamilies[user.id] = {
+        id: user.familyId || ('FAM-' + (user.id || 'NEW')),
+        address: user.address || user.ward || (user.district ? `${user.district}, ${user.state}` : 'Registered Address'),
+        householdSignals: [],
+        members: [
+          {
+            id: user.id,
+            name: `${user.name} (You)`,
+            relation: 'Self / Primary Member',
+            age: user.age || 30,
+            status: user.monitoringStatus || 'Routine Monitoring',
+            riskBadge: 'normal',
+            lastReportDate: 'Account Created'
+          }
+        ]
+      };
+      this.saveState();
+    }
+    return this.state.userFamilies[user.id];
+  }
+
+  addFamilyMemberForUser(user, member) {
+    const family = this.getUserFamily(user);
+    family.members.push({
+      id: 'FAM-M-' + Date.now(),
+      name: member.name,
+      relation: member.relation || 'Family Member',
+      age: Number(member.age) || 25,
+      status: 'Routine Monitoring',
+      riskBadge: 'normal',
+      lastReportDate: 'Joined Today'
+    });
+    this.saveState();
+    this.notify('FAMILY_MEMBER_ADDED', { family });
+    return family;
+  }
+
+  getUserTimeline(user) {
+    if (!user) return this.state.citizenTimeline || [];
+    const isDemoRahul = user.id === 'C10291' || user.email === 'rahul.sharma@example.com';
+    if (isDemoRahul) return this.state.citizenTimeline || [];
+
+    if (!this.state.userTimelines) this.state.userTimelines = {};
+    return this.state.userTimelines[user.id] || [];
+  }
+
+  getUserMedicalRecords(user) {
+    if (!user) return this.state.medicalRecords || [];
+    const isDemoRahul = user.id === 'C10291' || user.email === 'rahul.sharma@example.com';
+    if (isDemoRahul) return this.state.medicalRecords || [];
+
+    return (this.state.medicalRecords || []).filter(r => r.citizenId === user.id);
+  }
+
+  getUserConsultations(user) {
+    if (!user) return this.state.consultations || [];
+    const isDemoRahul = user.id === 'C10291' || user.email === 'rahul.sharma@example.com';
+    if (isDemoRahul) return this.state.consultations || [];
+
+    return (this.state.consultations || []).filter(c => c.citizenId === user.id);
+  }
+
+  getUserReferrals(user) {
+    if (!user) return this.state.referrals || [];
+    const isDemoRahul = user.id === 'C10291' || user.email === 'rahul.sharma@example.com';
+    if (isDemoRahul) return this.state.referrals || [];
+
+    return (this.state.referrals || []).filter(r => r.citizenId === user.id);
+  }
+
+  getPatientsForDoctor(doctorId) {
+    if (!doctorId) return this.state.doctorPatients || [];
+    if (doctorId === 'DR-1004' || doctorId === 'dr.arishta') return this.state.doctorPatients || [];
+    return (this.state.doctorPatients || []).filter(p => p.doctorId === doctorId || p.assignedDoctorId === doctorId);
+  }
+
+  getVisitsForAsha(ashaId) {
+    if (!ashaId) return this.state.householdVisits || [];
+    if (ashaId === 'ASHA-204' || ashaId === 'sunita.asha') return this.state.householdVisits || [];
+    return (this.state.householdVisits || []).filter(v => v.ashaId === ashaId);
+  }
+
   // --- MEDICAL RECORDS CRUD ---
   addMedicalRecord(recordData) {
+    const user = this.state.currentUser || {};
     const newRecord = {
       id: 'rec-' + Date.now(),
+      citizenId: recordData.citizenId || user.id || 'C10291',
       type: recordData.type || 'test_report',
       category: recordData.type === 'test_report' ? '🧪 Test Report'
         : recordData.type === 'doctor_analysis' ? '👨‍⚕️ Doctor Consultation'
@@ -1310,6 +1422,7 @@ class StateStore {
       this.state.medicalRecords = [];
     }
     this.state.medicalRecords.unshift(newRecord);
+    this.saveState();
     this.notify('MEDICAL_RECORD_ADDED', { record: newRecord });
     return newRecord;
   }
@@ -1743,6 +1856,175 @@ class StateStore {
     this.notify('ASHA_VERIFICATION_COMPLETED', { zoneId, verificationData });
   }
 
+  // --- ASHA FIELD WORK & HOUSEHOLD VISITS ---
+  completeAshaTask(taskId, findings = 'Routine household survey conducted. Hydration & vitals reviewed.') {
+    if (!this.state.ashaTasks) this.state.ashaTasks = [];
+    const task = this.state.ashaTasks.find(t => t.id === taskId);
+    if (task) {
+      task.status = 'Completed';
+      task.completedAt = 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      task.findings = findings;
+
+      if (this.state.users.asha && this.state.users.asha.pendingFollowupsCount > 0) {
+        this.state.users.asha.pendingFollowupsCount -= 1;
+      }
+
+      this.state.notifications.unshift({
+        id: 'notif-' + Date.now(),
+        targetRole: 'asha',
+        category: 'Task Completed',
+        title: `Household Task Completed`,
+        message: `Field visit for ${task.headName} (${task.familyId}) marked complete.`,
+        time: 'Just now',
+        read: false
+      });
+
+      this.saveState();
+      this.notify('ASHA_TASK_COMPLETED', { taskId, task });
+      return true;
+    }
+    return false;
+  }
+
+  addHouseholdVisit(visitData) {
+    if (!this.state.householdVisits) this.state.householdVisits = [];
+    const newVisit = {
+      id: 'vis-' + Date.now(),
+      citizenId: visitData.citizenId || 'C10291',
+      citizenName: visitData.citizenName || 'Patient',
+      familyId: visitData.familyId || 'FAM-10284',
+      date: visitData.date || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+      vitals: visitData.vitals || { bp: '120/80', pulse: '76 bpm', temp: '98.6 °F', spo2: '99%' },
+      symptoms: visitData.symptoms || [],
+      observations: visitData.observations || 'Routine household assessment completed.',
+      actionTaken: visitData.actionTaken || 'Provided ORS kit and sanitation guidance.',
+      monitoringStatus: visitData.monitoringStatus || 'Routine Monitoring',
+      ashaId: visitData.ashaId || 'ASHA-204',
+      ashaName: visitData.ashaName || 'Sunita Devi',
+      status: 'Completed',
+      createdAt: new Date().toISOString()
+    };
+
+    this.state.householdVisits.unshift(newVisit);
+
+    // Update citizen's monitoring status
+    const citizen = this.state.userAccounts.find(u => u.id === newVisit.citizenId);
+    if (citizen) {
+      citizen.monitoringStatus = newVisit.monitoringStatus;
+      citizen.lastVisitDate = newVisit.date;
+    }
+
+    this.state.notifications.unshift({
+      id: 'notif-' + Date.now(),
+      targetRole: 'asha',
+      category: 'Visit Logged',
+      title: `Household Visit Recorded`,
+      message: `Health visit logged for ${newVisit.citizenName} (${newVisit.familyId}).`,
+      time: 'Just now',
+      read: false
+    });
+
+    this.saveState();
+    this.notify('HOUSEHOLD_VISIT_ADDED', { visit: newVisit });
+    return newVisit;
+  }
+
+  addHealthReport(reportData) {
+    if (!this.state.symptomReports) this.state.symptomReports = [];
+    const newReport = {
+      id: 'REP-' + Math.floor(1000 + Math.random() * 9000),
+      citizenId: reportData.citizenId || 'C10291',
+      citizenName: reportData.citizenName || 'Community Member',
+      familyId: reportData.familyId || 'FAM-10284',
+      zone: reportData.zone || 'Zone C',
+      symptoms: reportData.symptoms || ['Fever'],
+      severity: reportData.severity || 'Moderate',
+      description: reportData.description || 'Community health report filed by ASHA worker.',
+      date: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: 'Under Surveillance',
+      reportedBy: reportData.reportedBy || 'ASHA-204 (Sunita Devi)',
+      photos: reportData.photos || [],
+      createdAt: new Date().toISOString()
+    };
+
+    this.state.symptomReports.unshift(newReport);
+
+    // Record in user's isolated timeline
+    if (newReport.citizenId) {
+      if (!this.state.userTimelines) this.state.userTimelines = {};
+      if (!this.state.userTimelines[newReport.citizenId]) this.state.userTimelines[newReport.citizenId] = [];
+      this.state.userTimelines[newReport.citizenId].unshift({
+        id: 'tl-' + Date.now(),
+        date: newReport.date,
+        type: 'report',
+        title: `Health issue reported: ${newReport.symptoms.join(', ')}`,
+        description: `${newReport.description} (Severity: ${newReport.severity}, Area: ${newReport.zone})`,
+        badgeText: 'Symptom Report',
+        badgeClass: 'badge-neutral',
+        photos: newReport.photos || []
+      });
+    }
+
+    // Update Zone stats and Early Warning
+    const zone = this.state.zones[newReport.zone];
+    if (zone) {
+      zone.reportsCount = (zone.reportsCount || 10) + 1;
+      if (zone.reportsCount > 25) {
+        zone.riskScore = Math.min(100, (zone.riskScore || 50) + 2);
+        zone.riskLevel = 'HIGH';
+      }
+    }
+
+    // Update KPI
+    if (this.state.kpis) {
+      this.state.kpis.totalHealthReports = (this.state.kpis.totalHealthReports || 0) + 1;
+    }
+
+    // Notify Doctor and Admin
+    this.state.notifications.unshift({
+      id: 'notif-' + Date.now(),
+      targetRole: 'doctor',
+      category: 'Field Report',
+      title: `New Symptom Report: ${newReport.zone}`,
+      message: `ASHA reported ${newReport.symptoms.join(', ')} for ${newReport.citizenName}. Severity: ${newReport.severity}.`,
+      time: 'Just now',
+      read: false
+    });
+
+    this.state.notifications.unshift({
+      id: 'notif-' + (Date.now() + 1),
+      targetRole: 'admin',
+      category: 'Surveillance Alert',
+      title: `Community Cluster Report in ${newReport.zone}`,
+      message: `${newReport.symptoms.join(', ')} filed by ASHA in ${newReport.zone}.`,
+      time: 'Just now',
+      read: false
+    });
+
+    this.saveState();
+    this.notify('HEALTH_REPORT_ADDED', { report: newReport });
+    return newReport;
+  }
+
+  updateCitizenMonitoringStatus(citizenId, newStatus) {
+    const citizen = this.state.userAccounts.find(u => u.id === citizenId);
+    if (citizen) {
+      citizen.monitoringStatus = newStatus;
+      this.saveState();
+      this.notify('CITIZEN_STATUS_UPDATED', { citizenId, status: newStatus });
+      return true;
+    }
+    return false;
+  }
+
+  getCitizenDetailsForAsha(citizenId) {
+    const citizen = this.state.userAccounts.find(u => u.id === citizenId) || this.state.users.citizen;
+    const referrals = this.getReferralsForCitizen(citizenId);
+    const visits = (this.state.householdVisits || []).filter(v => v.citizenId === citizenId);
+    const family = this.state.family;
+    return { citizen, referrals, visits, family };
+  }
+
   // --- ASHA-TO-DOCTOR REFERRAL PIPELINE METHODS ---
 
   createDoctorReferral(referralData) {
@@ -1884,5 +2166,11 @@ class StateStore {
   }
 }
 
-// Global Singleton Export
-window.SehatState = new StateStore();
+// Universal Singleton Export
+const instance = new StateStore();
+if (typeof window !== 'undefined') {
+  window.SehatState = instance;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = instance;
+}

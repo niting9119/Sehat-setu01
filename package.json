@@ -5,5 +5,9 @@
   "scripts": {
     "start": "node hackfest/server.js",
     "install:app": "npm --prefix hackfest install"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
+    "dotenv": "^17.4.2"
   }
 }

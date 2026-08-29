@@ -128,9 +128,48 @@ window.SehatApp = {
       window.SehatDemoFlow.init();
     }
 
+    // Connect Realtime Live Event Stream (SSE)
+    this.initRealtimeEventStream();
+
     // Initial render
     this.renderCurrentView();
     this.updateHeaderNav(state);
+  },
+
+  initRealtimeEventStream() {
+    if (typeof EventSource === 'undefined') return;
+    try {
+      const eventSource = new EventSource('/api/events/stream');
+      
+      eventSource.addEventListener('DOCTOR_REFERRAL_CREATED', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          const ref = data.payload?.referral;
+          if (ref) {
+            window.SehatUI.showToast('🚨 Live Doctor Referral', `${ref.citizenName} referred to ${ref.doctorName} (${ref.urgency} Urgency)`, 'alert');
+          }
+        } catch (err) {}
+      });
+
+      eventSource.addEventListener('HEALTH_REPORT_ADDED', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          const report = data.payload?.report;
+          if (report) {
+            window.SehatUI.showToast('📝 Grassroots Report', `New symptom report filed in ${report.zone} (${report.severity})`, 'warning');
+          }
+        } catch (err) {}
+      });
+
+      eventSource.addEventListener('OUTBREAK_ALERT', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          window.SehatUI.showToast('🚨 Outbreak Cluster Alert', `High Risk Anomaly detected in ${data.zone || 'Zone C'}`, 'alert');
+        } catch (err) {}
+      });
+    } catch (err) {
+      console.warn('Realtime event stream notice:', err.message);
+    }
   },
 
   updateHeaderNav(state) {
@@ -373,12 +412,12 @@ window.SehatApp = {
             One integrated ecosystem connecting citizens (symptom reporting & medical records), ASHA workers (field visits & doctor referrals), medical doctors (consultations & outcome tracking), and surveillance administrators.
           </p>
 
-          <div class="hero-cta-group" style="margin-bottom: 2.5rem;">
-            <button class="btn btn-lg btn-primary" onclick="window.SehatRouter.navigate('/citizen/dashboard')" style="border-radius: var(--radius-full); padding: 0.85rem 1.75rem; font-weight: 800;">
-              Launch Citizen Portal (Rahul Sharma) →
+          <div class="hero-cta-group" style="margin-bottom: 2.5rem; display: flex; gap: 0.85rem; justify-content: center; flex-wrap: wrap;">
+            <button class="btn btn-lg btn-primary" onclick="window.location.href='login.html?mode=login'" style="border-radius: var(--radius-full); padding: 0.85rem 1.85rem; font-weight: 800; font-size: 1rem; box-shadow: var(--shadow-md);">
+              🔑 Sign In / Login →
             </button>
-            <button class="btn btn-lg btn-secondary" onclick="window.SehatRouter.navigate('/doctor/dashboard')" style="border-radius: var(--radius-full); padding: 0.85rem 1.75rem; font-weight: 700;">
-              🩺 Doctor Consultation Portal →
+            <button class="btn btn-lg btn-outline" onclick="window.location.href='signup.html'" style="border-radius: var(--radius-full); padding: 0.85rem 1.85rem; font-weight: 800; font-size: 1rem; border-width: 2px;">
+              ✨ Create Account (Sign Up)
             </button>
           </div>
 
@@ -531,11 +570,89 @@ window.SehatApp = {
 
   renderCitizenTabContent(tab, state) {
     const user = state.currentUser || state.users.citizen;
-    const family = state.family;
-    const records = state.medicalRecords || [];
-    const consultations = (state.consultations || []).filter(c => c.citizenId === user.id || c.citizenId === 'CIT-10025' || c.citizenId === 'C10291' || user.id === 'C10291');
-    const referrals = window.SehatState.getReferralsForCitizen(user.id || 'CIT-10025');
+    const family = window.SehatState.getUserFamily(user);
+    const records = window.SehatState.getUserMedicalRecords(user);
+    const consultations = window.SehatState.getUserConsultations(user);
+    const referrals = window.SehatState.getUserReferrals(user);
+    const timeline = window.SehatState.getUserTimeline(user);
     const notifications = window.SehatState.getNotificationsForRole('citizen');
+
+    // --- TAB: CITIZEN PROFILE ---
+    if (tab === 'profile') {
+      return `
+        <div>
+          <div class="portal-header-bar">
+            <div>
+              <h2>👤 Citizen Health Profile & Demographics</h2>
+              <p>Official registry details, ABHA identification, and verified administrative location hierarchy.</p>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; max-width: 960px;">
+            <!-- Profile Identity Card -->
+            <div class="card" style="text-align: center;">
+              <div style="position: relative; width: 88px; height: 88px; margin: 0 auto 1rem;">
+                ${user.avatarUrl ? `
+                  <img src="${user.avatarUrl}" style="width: 88px; height: 88px; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent-emerald);">
+                ` : `
+                  <div style="width: 88px; height: 88px; border-radius: 50%; background: var(--accent-emerald); color: #fff; font-size: 2rem; font-weight: 800; display: flex; align-items: center; justify-content: center;">
+                    ${(user.name || 'Citizen').split(' ').map(n => n[0]).join('').slice(0, 2)}
+                  </div>
+                `}
+              </div>
+              <h3 style="font-size: 1.25rem; margin-bottom: 0.25rem;">${user.name}</h3>
+              <div style="font-family: var(--font-mono); font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                ID: <strong>${user.id || 'CIT-10025'}</strong>
+              </div>
+              <span class="badge badge-normal" style="margin-bottom: 1.25rem;">
+                <span class="badge-dot"></span> ${user.monitoringStatus || 'Routine Monitoring'}
+              </span>
+
+              <div style="border-top: 1px solid var(--border-subtle); padding-top: 1rem; text-align: left; font-size: 0.85rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                <div><strong>Email:</strong> <span style="color: var(--text-muted);">${user.email}</span></div>
+                <div><strong>Phone:</strong> <span style="color: var(--text-muted);">${user.phone || user.mobile || '+91 98765 43210'}</span></div>
+                <div><strong>Age / Gender:</strong> <span style="color: var(--text-muted);">${user.age || 32} yrs / ${user.gender || 'Male'}</span></div>
+                <div><strong>Family Unit:</strong> <span style="color: var(--text-muted); font-family: var(--font-mono);">${user.familyId || 'FAM-10284'}</span></div>
+              </div>
+            </div>
+
+            <!-- Profile Location & ABHA Card -->
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title"><span>📍</span> Administrative Location (India)</div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.85rem; background: var(--bg-surface-subtle); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1rem;">
+                  <div><span style="color: var(--text-muted);">Country:</span> <strong>🇮🇳 India</strong></div>
+                  <div><span style="color: var(--text-muted);">State / UT:</span> <strong>${user.state || 'Uttar Pradesh'}</strong></div>
+                  <div><span style="color: var(--text-muted);">District:</span> <strong>${user.district || 'Fatehpur'}</strong></div>
+                  <div><span style="color: var(--text-muted);">Block / Sub-District:</span> <strong>${user.block || 'Haswa'}</strong></div>
+                  <div style="grid-column: span 2;"><span style="color: var(--text-muted);">Village / Town / Ward:</span> <strong>🏡 ${user.village || user.town || user.ward || user.address || 'Haswa'}</strong></div>
+                </div>
+
+                <button class="btn btn-sm btn-outline" onclick="window.SehatApp.openEditProfileModal()">
+                  ✏️ Edit Profile & Location
+                </button>
+              </div>
+
+              <!-- ABHA National ID -->
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title"><span>🆔</span> Ayushman Bharat Health Account (ABHA)</div>
+                </div>
+                <p style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                  Your ABHA address uniquely identifies you in India's digital health ecosystem.
+                </p>
+                <div class="abha-badge" style="font-size: 1rem; padding: 0.75rem; text-align: center;">
+                  ${user.abhaId || '14-8921-4320-1092'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
 
     // --- TAB 1: NOTIFICATIONS ---
     if (tab === 'notifications') {
@@ -583,13 +700,20 @@ window.SehatApp = {
           <div class="portal-header-bar">
             <div>
               <h2>💊 My Prescribed Medications & Dosages</h2>
-              <p>Official medical prescriptions issued by Dr. Arishta Sharma and primary healthcare centers.</p>
+              <p>Official medical prescriptions issued by consulting doctors and primary healthcare centers.</p>
             </div>
             <button class="btn btn-primary" onclick="window.SehatApp.openAddRecordModal()">+ Add Prescription</button>
           </div>
 
           <div style="display: flex; flex-direction: column; gap: 1rem; max-width: 820px;">
-            ${rxRecords.map(rx => `
+            ${rxRecords.length === 0 ? `
+              <div class="card" style="text-align: center; padding: 2.5rem;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">💊</div>
+                <h3>No Prescriptions Issued Yet</h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem;">When your consulting doctor issues a prescription, it will be displayed here.</p>
+                <button class="btn btn-primary" style="margin-top: 0.5rem;" onclick="window.SehatApp.openAddRecordModal()">+ Upload Prescription Record</button>
+              </div>
+            ` : rxRecords.map(rx => `
               <div class="card" style="border-left: 4px solid var(--accent-emerald);">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
                   <div>
@@ -838,13 +962,11 @@ window.SehatApp = {
                   <input type="number" id="report-duration" class="form-control" value="2" min="1" max="30" required>
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Location / Ward *</label>
+                  <label class="form-label">Location / Village / Ward *</label>
                   <select id="report-location" class="form-control" required>
-                    <option value="Zone C">Zone C — Urban North Ward (Sector 9)</option>
-                    <option value="Zone A">Zone A — South Green Colony</option>
-                    <option value="Zone B">Zone B — East Lake Vista</option>
-                    <option value="Zone D">Zone D — West Industrial Belt</option>
-                    <option value="Zone E">Zone E — Railway Colony</option>
+                    <option value="${user.village || user.town || user.ward || user.address || 'Haswa'}" selected>
+                      📍 ${user.village || user.town || user.ward || user.address || 'Haswa'} (${user.district || 'Fatehpur'}, ${user.state || 'UP'})
+                    </option>
                   </select>
                 </div>
               </div>
@@ -939,7 +1061,14 @@ window.SehatApp = {
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
-            ${filteredRecords.map(r => `
+            ${filteredRecords.length === 0 ? `
+              <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 2.5rem;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📋</div>
+                <h3>No Medical Records Uploaded Yet</h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem;">Click '+ Add Medical Record' to securely upload your lab test report, prescription, or clinical assessment.</p>
+                <button class="btn btn-primary" style="margin-top: 0.5rem;" onclick="window.SehatApp.openAddRecordModal()">+ Add First Record</button>
+              </div>
+            ` : filteredRecords.map(r => `
               <div class="medical-record-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                   <span class="badge ${r.type === 'test_report' ? 'badge-blue' : r.type === 'doctor_analysis' ? 'badge-purple' : 'badge-normal'}">
@@ -1002,34 +1131,43 @@ window.SehatApp = {
           </div>
 
           <div class="card">
-            <div class="timeline">
-              ${state.citizenTimeline.map(item => `
-                <div class="timeline-item">
-                  <div class="timeline-dot ${item.type === 'doctor' ? 'doctor' : item.type === 'followup' ? 'followup' : ''}">
-                    ${item.type === 'doctor' ? '🩺' : item.type === 'followup' ? '🗓️' : '📝'}
-                  </div>
-                  <div class="timeline-content">
-                    <div class="timeline-header">
-                      <div class="timeline-title">${item.title}</div>
-                      <span class="badge ${item.badgeClass}">${item.badgeText}</span>
+            ${timeline.length === 0 ? `
+              <div style="text-align: center; padding: 2.5rem 1rem;">
+                <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">⏱️</div>
+                <h3>Your Health Timeline is Fresh & Active</h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 480px; margin: 0.5rem auto 1rem;">When you file symptom reports or consult with doctors, your clinical events will be chronologically tracked here.</p>
+                <button class="btn btn-primary" onclick="window.SehatRouter.navigate('/citizen/report-health-issue')">📝 Report First Health Concern</button>
+              </div>
+            ` : `
+              <div class="timeline">
+                ${timeline.map(item => `
+                  <div class="timeline-item">
+                    <div class="timeline-dot ${item.type === 'doctor' ? 'doctor' : item.type === 'followup' ? 'followup' : ''}">
+                      ${item.type === 'doctor' ? '🩺' : item.type === 'followup' ? '🗓️' : '📝'}
                     </div>
-                    <div class="timeline-date">${item.date}</div>
-                    <div class="timeline-body" style="margin-top: 0.35rem;">${item.description}</div>
-
-                    ${Array.isArray(item.photos) && item.photos.length > 0 ? `
-                      <div style="margin-top: 0.75rem;">
-                        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.35rem;">📷 Attached Visual Evidence:</div>
-                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                          ${item.photos.map(p => `
-                            <img src="${p}" style="width: 60px; height: 60px; border-radius: var(--radius-sm); object-fit: cover; border: 1px solid var(--border-medium); cursor: pointer;" onclick="window.SehatApp.openPhotoPreviewModal('${p}', 'Timeline Evidence')">
-                          `).join('')}
-                        </div>
+                    <div class="timeline-content">
+                      <div class="timeline-header">
+                        <div class="timeline-title">${item.title}</div>
+                        <span class="badge ${item.badgeClass}">${item.badgeText}</span>
                       </div>
-                    ` : ''}
+                      <div class="timeline-date">${item.date}</div>
+                      <div class="timeline-body" style="margin-top: 0.35rem;">${item.description}</div>
+
+                      ${Array.isArray(item.photos) && item.photos.length > 0 ? `
+                        <div style="margin-top: 0.75rem;">
+                          <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.35rem;">📷 Attached Visual Evidence:</div>
+                          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            ${item.photos.map(p => `
+                              <img src="${p}" style="width: 60px; height: 60px; border-radius: var(--radius-sm); object-fit: cover; border: 1px solid var(--border-medium); cursor: pointer;" onclick="window.SehatApp.openPhotoPreviewModal('${p}', 'Timeline Evidence')">
+                            `).join('')}
+                          </div>
+                        </div>
+                      ` : ''}
+                    </div>
                   </div>
-                </div>
-              `).join('')}
-            </div>
+                `).join('')}
+              </div>
+            `}
           </div>
         </div>
       `;
@@ -1037,6 +1175,7 @@ window.SehatApp = {
 
     // --- TAB 8: FAMILY HUB ---
     if (tab === 'family') {
+      const hasSignals = family.householdSignals && family.householdSignals.length > 0;
       return `
         <div>
           <div class="portal-header-bar">
@@ -1047,28 +1186,37 @@ window.SehatApp = {
             <button class="btn btn-sm btn-primary" onclick="window.SehatRouter.navigate('/citizen/report-health-issue')">+ Report for Member</button>
           </div>
 
-          <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--accent-amber); border-radius: var(--radius-md); padding: 0.85rem 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
-            <span style="font-size: 1.35rem;">⚠️</span>
-            <div style="font-size: 0.85rem;">
-              <strong>Household Alert:</strong> 2 health reports recorded in this family unit in the last 7 days. Routine follow-up scheduled.
+          ${hasSignals ? `
+            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--accent-amber); border-radius: var(--radius-md); padding: 0.85rem 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
+              <span style="font-size: 1.35rem;">⚠️</span>
+              <div style="font-size: 0.85rem;">
+                <strong>Household Alert:</strong> ${family.householdSignals[0].text}
+              </div>
             </div>
-          </div>
+          ` : `
+            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid var(--accent-emerald); border-radius: var(--radius-md); padding: 0.85rem 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
+              <span style="font-size: 1.35rem;">🛡️</span>
+              <div style="font-size: 0.85rem;">
+                <strong>Household Safe:</strong> No active outbreak signals recorded for your registered address (${family.address}).
+              </div>
+            </div>
+          `}
 
           <div class="family-grid">
             ${family.members.map(m => `
               <div class="family-card">
                 <div class="family-card-head">
-                  <div class="family-avatar">${m.name.split(' ').map(n => n[0]).join('')}</div>
+                  <div class="family-avatar">${(m.name || 'Member').split(' ').map(n => n[0]).join('').slice(0, 2)}</div>
                   <div class="family-member-info">
                     <h4>${m.name}</h4>
                     <span>${m.relation} • ${m.age} yrs</span>
                   </div>
                 </div>
                 <div style="margin-top: 0.5rem;">
-                  <span class="badge badge-${m.riskBadge}"><span class="badge-dot"></span> ${m.status}</span>
+                  <span class="badge badge-${m.riskBadge || 'normal'}"><span class="badge-dot"></span> ${m.status || 'Routine Monitoring'}</span>
                 </div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: auto; border-top: 1px solid var(--border-subtle); padding-top: 0.5rem;">
-                  Last Reported: <strong>${m.lastReportDate}</strong>
+                  Last Reported: <strong>${m.lastReportDate || 'Just now'}</strong>
                 </div>
               </div>
             `).join('')}
@@ -1088,7 +1236,7 @@ window.SehatApp = {
             <div>
               <div class="citizen-greeting">
                 <h2>Good Day, ${user.name}</h2>
-                <p style="color: var(--primary-100); font-size: 0.9rem;">Citizen ID: <strong>${user.id || 'CIT-10025'}</strong> • Ward: <strong>${user.zone || 'Zone C'}</strong></p>
+                <p style="color: var(--primary-100); font-size: 0.9rem;">Citizen ID: <strong>${user.id || 'CIT-10025'}</strong> • Location: <strong>${user.village || user.town || user.ward || user.zone || 'Zone C'}</strong></p>
               </div>
             </div>
           </div>
@@ -1135,7 +1283,12 @@ window.SehatApp = {
                 <button class="btn btn-sm btn-outline" onclick="window.SehatRouter.navigate('/citizen/timeline')">Full Timeline →</button>
               </div>
               <div class="timeline" style="padding-left: 1.25rem;">
-                ${state.citizenTimeline.slice(0, 2).map(item => `
+                ${timeline.length === 0 ? `
+                  <div style="padding: 1.5rem 0.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                    <div>🌿 No recent health issues reported.</div>
+                    <div style="font-size: 0.775rem; margin-top: 0.25rem;">Your account is fresh and monitored under routine surveillance.</div>
+                  </div>
+                ` : timeline.slice(0, 2).map(item => `
                   <div class="timeline-item">
                     <div class="timeline-dot ${item.type === 'doctor' ? 'doctor' : ''}">
                       ${item.type === 'doctor' ? '🩺' : '📝'}
@@ -1964,6 +2117,8 @@ window.SehatApp = {
     }
 
     // --- DEFAULT SUBVIEW: PATIENT QUEUE ---
+    const doctorPatients = window.SehatState.getPatientsForDoctor ? window.SehatState.getPatientsForDoctor(doc.id) : (doc.id === 'DR-1004' ? state.doctorPatients : []);
+
     return `
       <div>
         <div class="portal-header-bar">
@@ -1977,69 +2132,80 @@ window.SehatApp = {
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
-          <div class="stat-card stat-doctor">
-            <div class="stat-label">Active Queue</div>
-            <div class="stat-value">${state.doctorPatients.length}</div>
-            <div class="stat-meta">Patients in consultation unit</div>
-          </div>
-          <div class="stat-card stat-watch">
-            <div class="stat-label">Pending Reviews</div>
-            <div class="stat-value" style="color: var(--risk-watch-border);">${state.doctorPatients.filter(p => p.status === 'Pending Review').length}</div>
-            <div class="stat-meta">Zone C symptom reports</div>
-          </div>
-          <div class="stat-card stat-doctor">
-            <div class="stat-label">Success Rate</div>
-            <div class="stat-value" style="color: var(--accent-emerald);">85.9%</div>
-            <div class="stat-meta">Outcome-driven resolved cases</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title"><span>📋</span> Active Patient Intake Queue</div>
+            <div class="stat-card stat-doctor">
+              <div class="stat-label">Active Queue</div>
+              <div class="stat-value">${doctorPatients.length}</div>
+              <div class="stat-meta">Patients in consultation unit</div>
+            </div>
+            <div class="stat-card stat-watch">
+              <div class="stat-label">Pending Reviews</div>
+              <div class="stat-value" style="color: var(--risk-watch-border);">${doctorPatients.filter(p => p.status === 'Pending Review').length}</div>
+              <div class="stat-meta">Awaiting clinical assessment</div>
+            </div>
+            <div class="stat-card stat-doctor">
+              <div class="stat-label">Success Rate</div>
+              <div class="stat-value" style="color: var(--accent-emerald);">${doctorPatients.length > 0 ? '85.9%' : '100%'}</div>
+              <div class="stat-meta">Outcome-driven resolved cases</div>
+            </div>
           </div>
 
-          <table class="patient-table">
-            <thead>
-              <tr>
-                <th>Citizen ID</th>
-                <th>Patient Name</th>
-                <th>Family ID</th>
-                <th>Recent Symptoms</th>
-                <th>Severity</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${state.doctorPatients.map(p => `
-                <tr class="patient-row" onclick="window.SehatRouter.navigate('/doctor/patients/${p.id}')">
-                  <td style="font-family: var(--font-mono); font-weight: 700;">${p.id}</td>
-                  <td><strong>${p.name}</strong> (${p.age}y/${p.gender})</td>
-                  <td style="font-family: var(--font-mono);">${p.familyId}</td>
-                  <td>${(p.recentSymptoms || []).join(', ')}</td>
-                  <td>
-                    <span class="badge ${p.severity === 'Severe' ? 'badge-high' : p.severity === 'Moderate' ? 'badge-watch' : 'badge-normal'}">
-                      ${p.severity}
-                    </span>
-                  </td>
-                  <td>
-                    <span class="badge ${p.status === 'Reviewed' ? 'badge-normal' : 'badge-watch'}">
-                      ${p.status}
-                    </span>
-                  </td>
-                  <td>
-                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); window.SehatRouter.navigate('/doctor/consultation/new/${p.id}')">
-                      Consult →
-                    </button>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>📋</span> Active Patient Intake Queue</div>
+            </div>
+
+            ${doctorPatients.length === 0 ? `
+              <div style="text-align: center; padding: 3rem 1rem;">
+                <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">👥</div>
+                <h3>No Patients in Consultation Queue Yet</h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 480px; margin: 0.5rem auto 1rem;">
+                  Your clinical intake queue is fresh. When patients are referred by field ASHA workers or registered at your health center, they will appear here.
+                </p>
+                <button class="btn btn-primary" onclick="window.SehatRouter.navigate('/doctor/register-patient')">➕ Search or Register Patient</button>
+              </div>
+            ` : `
+              <table class="patient-table">
+                <thead>
+                  <tr>
+                    <th>Citizen ID</th>
+                    <th>Patient Name</th>
+                    <th>Family ID</th>
+                    <th>Recent Symptoms</th>
+                    <th>Severity</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${doctorPatients.map(p => `
+                    <tr class="patient-row" onclick="window.SehatRouter.navigate('/doctor/patients/${p.id}')">
+                      <td style="font-family: var(--font-mono); font-weight: 700;">${p.id}</td>
+                      <td><strong>${p.name}</strong> (${p.age}y/${p.gender})</td>
+                      <td style="font-family: var(--font-mono);">${p.familyId}</td>
+                      <td>${(p.recentSymptoms || []).join(', ')}</td>
+                      <td>
+                        <span class="badge ${p.severity === 'Severe' ? 'badge-high' : p.severity === 'Moderate' ? 'badge-watch' : 'badge-normal'}">
+                          ${p.severity}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="badge ${p.status === 'Reviewed' ? 'badge-normal' : 'badge-watch'}">
+                          ${p.status}
+                        </span>
+                      </td>
+                      <td>
+                        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); window.SehatRouter.navigate('/doctor/consultation/new/${p.id}')">
+                          Consult →
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `}
+          </div>
         </div>
-      </div>
-    `;
+      `;
   },
 
   renderPatientTabContent(tab, citizen, history) {
@@ -2268,36 +2434,316 @@ window.SehatApp = {
 
   renderAshaSubViewContent(subView, state) {
     const asha = state.currentUser || state.users.asha;
+    const citizens = state.userAccounts.filter(u => u.role === 'citizen');
+    const referrals = window.SehatState.getReferralsForAsha(asha.id || 'ASHA-204');
+    const visits = (state.householdVisits || []);
+    const tasks = (state.ashaTasks || []);
+    const params = window.SehatRouter.currentParams || {};
 
-    // --- SUBVIEW 1: ASSIGNED CITIZENS ---
-    if (subView === 'citizens') {
-      const citizens = state.userAccounts.filter(u => u.role === 'citizen');
+    // =========================================================================
+    // SUBVIEW: CITIZEN DETAIL PROFILE (/asha/citizens/:id)
+    // =========================================================================
+    if (subView === 'citizen_detail') {
+      const citizenId = params.citizenId || 'C10291';
+      const citizen = state.userAccounts.find(u => u.id === citizenId) || state.users.citizen;
+      const citizenRefs = window.SehatState.getReferralsForCitizen(citizenId);
+      const citizenVisits = visits.filter(v => v.citizenId === citizenId);
+      const citizenFamily = state.family;
+
       return `
         <div>
-          <div style="margin-bottom: 1rem;">
-            <h3 style="font-size: 1.15rem; margin-bottom: 0.25rem;">👥 Assigned Citizens in ${asha.area || 'Zone C'}</h3>
-            <p style="font-size: 0.8rem; color: var(--text-muted);">Inspect health records, log household visits, or create doctor referrals.</p>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div>
+              <button class="btn btn-sm btn-outline" onclick="window.SehatRouter.navigate('/asha/citizens')" style="margin-bottom: 0.5rem;">
+                ← Back to Assigned Citizens
+              </button>
+              <h3 style="font-size: 1.35rem; margin-bottom: 0.15rem;">👤 ${citizen.name} — Community Health Profile</h3>
+              <p style="font-size: 0.825rem; color: var(--text-muted);">
+                Citizen ID: <strong>${citizen.id}</strong> • Family: <strong>${citizen.familyId || 'FAM-10284'}</strong> • Ward: <strong>${citizen.zone || 'Zone C'}</strong>
+              </p>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-sm btn-secondary" onclick="window.SehatApp.openLogVisitModal('${citizen.id}')">📋 Log Visit</button>
+              <button class="btn btn-sm btn-primary" onclick="window.SehatApp.openCreateReferralModal('${citizen.id}')">🏥 Refer to Doctor</button>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.25rem;">
+            <!-- Left Column: Health Info & History -->
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+              <!-- Basic Demographics & Monitoring Status Card -->
+              <div class="card">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                  <div class="card-title"><span>🪪</span> Official Demographics & Status</div>
+                  <span class="badge ${citizen.monitoringStatus === 'High Risk' ? 'badge-high' : citizen.monitoringStatus === 'Follow-up Required' ? 'badge-watch' : 'badge-normal'}">
+                    ${citizen.monitoringStatus || 'Routine Monitoring'}
+                  </span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; font-size: 0.85rem; padding-top: 0.5rem;">
+                  <div><span style="color: var(--text-muted);">Age / Gender:</span><br><strong>${citizen.age || 32} yrs / ${citizen.gender || 'Male'}</strong></div>
+                  <div><span style="color: var(--text-muted);">Phone Number:</span><br><strong>${citizen.phone || citizen.mobile || '+91 98765 43210'}</strong></div>
+                  <div><span style="color: var(--text-muted);">ABHA ID:</span><br><strong style="font-family: var(--font-mono);">${citizen.abhaId || '14-8921-4320-1092'}</strong></div>
+                  <div style="grid-column: span 3;"><span style="color: var(--text-muted);">Residential Address:</span><br><strong>${citizen.address || 'House #42, Sector 9, Zone C — Urban North Ward'}</strong></div>
+                </div>
+
+                <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; gap: 0.75rem;">
+                  <span style="font-size: 0.825rem; font-weight: 700;">Update Status:</span>
+                  <select class="form-control" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem;" onchange="window.SehatApp.handleUpdateCitizenStatus('${citizen.id}', this.value)">
+                    <option value="Routine Monitoring" ${citizen.monitoringStatus === 'Routine Monitoring' ? 'selected' : ''}>Routine Monitoring</option>
+                    <option value="Follow-up Required" ${citizen.monitoringStatus === 'Follow-up Required' ? 'selected' : ''}>Follow-up Required</option>
+                    <option value="Active Observation" ${citizen.monitoringStatus === 'Active Observation' ? 'selected' : ''}>Active Observation</option>
+                    <option value="High Risk" ${citizen.monitoringStatus === 'High Risk' ? 'selected' : ''}>High Risk</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Referrals for this Citizen -->
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title"><span>🏥</span> Doctor Referrals History (${citizenRefs.length})</div>
+                </div>
+                ${citizenRefs.length === 0 ? `
+                  <p style="color: var(--text-muted); font-size: 0.85rem;">No doctor referrals recorded for this citizen.</p>
+                ` : `
+                  <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    ${citizenRefs.map(r => `
+                      <div style="background: var(--bg-surface-subtle); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                          <strong>Referred to: ${r.doctorName}</strong>
+                          <span class="badge ${r.status === 'Completed' ? 'badge-normal' : 'badge-purple'}">${r.status}</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">Reason: ${r.reason}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Scheduled: ${r.date} • Urgency: <strong>${r.urgency}</strong></div>
+                      </div>
+                    `).join('')}
+                  </div>
+                `}
+              </div>
+
+              <!-- Logged Household Visits -->
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title"><span>📋</span> Logged Household Visits (${citizenVisits.length})</div>
+                </div>
+                ${citizenVisits.length === 0 ? `
+                  <p style="color: var(--text-muted); font-size: 0.85rem;">No household visits logged yet. Click "Log Visit" to record vitals and survey findings.</p>
+                ` : `
+                  <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    ${citizenVisits.map(v => `
+                      <div style="background: var(--bg-surface-subtle); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                          <strong>Visit Date: ${v.date}</strong>
+                          <span class="badge badge-normal">Completed</span>
+                        </div>
+                        <div style="font-size: 0.8rem; margin: 0.3rem 0;">${v.observations}</div>
+                        <div style="font-size: 0.75rem; color: var(--primary-700); font-family: var(--font-mono);">
+                          BP: ${v.vitals?.bp || '120/80'} | Pulse: ${v.vitals?.pulse || '76'} | Temp: ${v.vitals?.temp || '98.6°F'} | SpO2: ${v.vitals?.spo2 || '99%'}
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                `}
+              </div>
+            </div>
+
+            <!-- Right Column: Family Hub & Contact -->
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title"><span>👨‍👩‍👧‍👦</span> Household Family Unit</div>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                  Family ID: <strong>${citizen.familyId || 'FAM-10284'}</strong>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                  ${(citizenFamily.members || []).map(m => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-surface-subtle); border-radius: var(--radius-sm); font-size: 0.825rem;">
+                      <div>
+                        <strong>${m.name}</strong>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">${m.relation} (${m.age}y)</div>
+                      </div>
+                      <span class="badge ${m.status === 'Follow-up Required' ? 'badge-watch' : 'badge-normal'}" style="font-size: 0.7rem;">${m.status}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title"><span>🚨</span> Emergency & Ward Contact</div>
+                </div>
+                <div style="font-size: 0.825rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                  <div>Emergency Contact: <strong>${citizen.emergencyContact || '+91 98765 00000 (Family)'}</strong></div>
+                  <div>Primary Facility: <strong>Urban Community Health Centre (UCHC-4)</strong></div>
+                  <div>Assigned Doctor: <strong>Dr. Arishta Sharma</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // SUBVIEW: ASSIGNED CITIZENS DIRECTORY (/asha/citizens)
+    // =========================================================================
+    if (subView === 'citizens') {
+      const activeFilter = params.filter || 'all';
+      const searchQuery = (this.ashaCitizenSearchQuery || '').toLowerCase().trim();
+
+      let filtered = citizens;
+      if (activeFilter === 'followup') filtered = filtered.filter(c => c.monitoringStatus === 'Follow-up Required');
+      else if (activeFilter === 'observation') filtered = filtered.filter(c => c.monitoringStatus === 'Active Observation');
+      else if (activeFilter === 'high_risk') filtered = filtered.filter(c => c.monitoringStatus === 'High Risk');
+      else if (activeFilter === 'routine') filtered = filtered.filter(c => c.monitoringStatus === 'Routine Monitoring');
+
+      if (searchQuery) {
+        filtered = filtered.filter(c =>
+          (c.name || '').toLowerCase().includes(searchQuery) ||
+          (c.id || '').toLowerCase().includes(searchQuery) ||
+          (c.familyId || '').toLowerCase().includes(searchQuery) ||
+          (c.phone || c.mobile || '').includes(searchQuery)
+        );
+      }
+
+      return `
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div>
+              <h3 style="font-size: 1.25rem; margin-bottom: 0.2rem;">👥 Assigned Citizens & Household Directory</h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted);">Assigned to ${asha.name} in ${asha.area || 'Zone C Urban North Ward'}.</p>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="window.SehatApp.openCreateReferralModal()">+ New Doctor Referral</button>
+          </div>
+
+          <!-- Search & Filter Toolbar -->
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 0.85rem; margin-bottom: 1.25rem; display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 220px; position: relative;">
+              <input type="text" id="asha-citizen-search-input" class="form-control" placeholder="🔍 Search citizen by Name, ID, Family ID, Phone..." value="${this.ashaCitizenSearchQuery || ''}" style="padding-left: 0.75rem;">
+            </div>
+            <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+              <button class="btn btn-sm ${activeFilter === 'all' ? 'btn-primary' : 'btn-outline'}" onclick="window.SehatRouter.navigate('/asha/citizens')">All (${citizens.length})</button>
+              <button class="btn btn-sm ${activeFilter === 'followup' ? 'btn-primary' : 'btn-outline'}" onclick="window.SehatRouter.navigate('/asha/citizens?filter=followup')">Follow-up Required (${citizens.filter(c => c.monitoringStatus === 'Follow-up Required').length})</button>
+              <button class="btn btn-sm ${activeFilter === 'observation' ? 'btn-primary' : 'btn-outline'}" onclick="window.SehatRouter.navigate('/asha/citizens?filter=observation')">Active Observation (${citizens.filter(c => c.monitoringStatus === 'Active Observation').length})</button>
+              <button class="btn btn-sm ${activeFilter === 'routine' ? 'btn-primary' : 'btn-outline'}" onclick="window.SehatRouter.navigate('/asha/citizens?filter=routine')">Routine (${citizens.filter(c => c.monitoringStatus === 'Routine Monitoring').length})</button>
+            </div>
+          </div>
+
+          <!-- Citizens Grid -->
+          ${filtered.length === 0 ? `
+            <div class="card" style="text-align: center; padding: 2.5rem 1rem;">
+              <p style="color: var(--text-muted); font-size: 0.95rem;">No citizens found matching your filter or search query.</p>
+              <button class="btn btn-sm btn-secondary" onclick="window.SehatApp.ashaCitizenSearchQuery = ''; window.SehatRouter.navigate('/asha/citizens');" style="margin-top: 0.5rem;">Reset Filter</button>
+            </div>
+          ` : `
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+              ${filtered.map(c => `
+                <div class="card" style="border-left: 4px solid ${c.monitoringStatus === 'High Risk' ? 'var(--risk-high-border)' : c.monitoringStatus === 'Follow-up Required' ? 'var(--accent-purple)' : 'var(--accent-emerald)'};">
+                  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                      <h4 style="font-size: 1.05rem; margin-bottom: 0.15rem; cursor: pointer; color: var(--primary-700);" onclick="window.SehatRouter.navigate('/asha/citizens/${c.id}')">${c.name}</h4>
+                      <div style="font-size: 0.775rem; color: var(--text-muted); font-family: var(--font-mono);">
+                        ID: <strong>${c.id}</strong> • Family: <strong>${c.familyId || 'FAM-10284'}</strong> • ${c.age || 32}y/${c.gender || 'M'} • 📞 ${c.phone || c.mobile || '+91 98765 43210'}
+                      </div>
+                      <div style="font-size: 0.775rem; color: var(--text-muted); margin-top: 0.2rem;">
+                        📍 ${c.address || 'Sector 9, Zone C'}
+                      </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                      <select class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onchange="window.SehatApp.handleUpdateCitizenStatus('${c.id}', this.value)">
+                        <option value="Routine Monitoring" ${c.monitoringStatus === 'Routine Monitoring' ? 'selected' : ''}>Routine</option>
+                        <option value="Follow-up Required" ${c.monitoringStatus === 'Follow-up Required' ? 'selected' : ''}>Follow-up</option>
+                        <option value="Active Observation" ${c.monitoringStatus === 'Active Observation' ? 'selected' : ''}>Observation</option>
+                        <option value="High Risk" ${c.monitoringStatus === 'High Risk' ? 'selected' : ''}>High Risk</option>
+                      </select>
+                      <span class="badge ${c.monitoringStatus === 'High Risk' ? 'badge-high' : c.monitoringStatus === 'Follow-up Required' ? 'badge-watch' : 'badge-normal'}">${c.monitoringStatus}</span>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 0.6rem; flex-wrap: wrap;">
+                    <button class="btn btn-sm btn-secondary" onclick="window.SehatApp.openLogVisitModal('${c.id}')">
+                      📋 Log Visit
+                    </button>
+                    <button class="btn btn-sm btn-outline" onclick="window.SehatApp.openCreateReferralModal('${c.id}')">
+                      🏥 Refer to Doctor
+                    </button>
+                    <button class="btn btn-sm btn-outline" onclick="window.SehatRouter.navigate('/asha/citizens/${c.id}')" style="margin-left: auto;">
+                      View Health Profile →
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // SUBVIEW: HEALTH VISITS (/asha/health-visits)
+    // =========================================================================
+    if (subView === 'visits') {
+      const activeFilter = params.filter || 'all';
+      let allVisits = [...tasks.map(t => ({ ...t, type: 'task' })), ...visits.map(v => ({ ...v, type: 'visit' }))];
+
+      if (activeFilter === 'pending') allVisits = allVisits.filter(v => v.status !== 'Completed');
+      else if (activeFilter === 'completed') allVisits = allVisits.filter(v => v.status === 'Completed');
+
+      return `
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div>
+              <h3 style="font-size: 1.25rem; margin-bottom: 0.2rem;">📋 Household Visits & Field Monitoring</h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted);">Manage scheduled household rounds, vitals capture, and visit completion logs.</p>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="window.SehatApp.openLogVisitModal()">+ Log New Household Visit</button>
+          </div>
+
+          <!-- Filter Bar -->
+          <div style="display: flex; gap: 0.4rem; margin-bottom: 1rem;">
+            <button class="btn btn-sm ${activeFilter === 'all' ? 'btn-primary' : 'btn-outline'}" onclick="window.SehatRouter.navigate('/asha/health-visits')">All Visits (${tasks.length + visits.length})</button>
+            <button class="btn btn-sm ${activeFilter === 'pending' ? 'btn-primary' : 'btn-outline'}" onclick="window.SehatRouter.navigate('/asha/health-visits?filter=pending')">Due / Scheduled (${tasks.filter(t => t.status !== 'Completed').length})</button>
+            <button class="btn btn-sm ${activeFilter === 'completed' ? 'btn-primary' : 'btn-outline'}" onclick="window.SehatRouter.navigate('/asha/health-visits?filter=completed')">Completed (${tasks.filter(t => t.status === 'Completed').length + visits.length})</button>
           </div>
 
           <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-            ${citizens.map(c => `
-              <div class="card" style="border-left: 4px solid var(--accent-emerald);">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
+            ${allVisits.length === 0 ? `
+              <div class="card" style="text-align: center; padding: 3rem 1rem;">
+                <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📋</div>
+                <h3>No Household Visits Recorded Yet</h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 480px; margin: 0.5rem auto 1rem;">
+                  Your household monitoring directory is ready. Click '+ Log New Household Visit' to record vitals, symptoms, and field interventions.
+                </p>
+                <button class="btn btn-primary" onclick="window.SehatApp.openLogVisitModal()">+ Log First Household Visit</button>
+              </div>
+            ` : allVisits.map(t => `
+              <div class="card" style="border-left: 4px solid ${t.status === 'Completed' ? 'var(--accent-emerald)' : t.priority === 'High' ? 'var(--risk-high-border)' : 'var(--accent-purple)'};">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.35rem;">
                   <div>
-                    <h4 style="font-size: 1rem; margin-bottom: 0.15rem;">${c.name}</h4>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">
-                      ID: <strong>${c.id || 'CIT-10025'}</strong> • Family: <strong>${c.familyId}</strong> • ${c.age}y/${c.gender}
-                    </div>
+                    <h4 style="font-size: 1rem; margin-bottom: 0.15rem;">${t.headName || t.citizenName} (${t.familyId})</h4>
+                    <div style="font-size: 0.775rem; color: var(--text-muted);">📍 ${t.address || 'Sector 9, Zone C'}</div>
                   </div>
-                  <span class="badge badge-normal">${c.monitoringStatus}</span>
+                  <span class="badge ${t.status === 'Completed' ? 'badge-normal' : t.priority === 'High' ? 'badge-high' : 'badge-watch'}">
+                    ${t.status || 'Scheduled'}
+                  </span>
                 </div>
-                <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 0.6rem;">
-                  <button class="btn btn-sm btn-secondary" onclick="window.SehatApp.openCreateReferralModal('${c.id}')">
-                    🏥 Refer to Doctor
-                  </button>
-                  <button class="btn btn-sm btn-outline" onclick="window.SehatRouter.navigate('/doctor/patients/${c.id}')">
-                    View Medical History →
-                  </button>
+                <div style="font-size: 0.825rem; margin: 0.35rem 0;">${t.reason || t.observations || 'Routine household wellness check.'}</div>
+                ${t.vitals ? `
+                  <div style="font-size: 0.75rem; color: var(--primary-700); font-family: var(--font-mono); margin-bottom: 0.4rem;">
+                    BP: ${t.vitals.bp || '120/80'} | Pulse: ${t.vitals.pulse || '76 bpm'} | Temp: ${t.vitals.temp || '98.6 °F'} | SpO2: ${t.vitals.spo2 || '99%'}
+                  </div>
+                ` : ''}
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 0.5rem; font-size: 0.75rem;">
+                  <span>Date: <strong>${t.date}</strong> ${t.completedAt ? `• (${t.completedAt})` : ''}</span>
+                  ${t.status !== 'Completed' ? `
+                    <div style="display: flex; gap: 0.4rem;">
+                      <button class="btn btn-sm btn-primary" onclick="window.SehatApp.handleCompleteAshaTask('${t.id}')">
+                        ✓ Complete Visit
+                      </button>
+                    </div>
+                  ` : `
+                    <span style="color: var(--accent-emerald); font-weight: 700;">✓ Verified Logged</span>
+                  `}
                 </div>
               </div>
             `).join('')}
@@ -2306,32 +2752,145 @@ window.SehatApp = {
       `;
     }
 
-    // --- SUBVIEW 2: REFERRALS TRACKER ---
-    if (subView === 'referrals') {
-      const referrals = window.SehatState.getReferralsForAsha(asha.id || 'ASHA-204');
+    // =========================================================================
+    // SUBVIEW: REPORT HEALTH ISSUE (/asha/report-health-issue)
+    // =========================================================================
+    if (subView === 'report_issue') {
       return `
         <div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <div style="margin-bottom: 1.25rem;">
+            <h3 style="font-size: 1.25rem; margin-bottom: 0.2rem;">📝 Report Community Health Issue</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">Log grassroots symptom reports or household cluster outbreak signals directly to the district surveillance network.</p>
+          </div>
+
+          <div class="card" style="max-width: 800px;">
+            <form id="asha-report-symptom-form">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                  <label class="form-label">Select Citizen / Household Head *</label>
+                  <select id="asha-report-citizen" class="form-control" required>
+                    ${citizens.map(c => `
+                      <option value="${c.id}">${c.name} (${c.id}) — Family: ${c.familyId}</option>
+                    `).join('')}
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Surveillance Ward / Area *</label>
+                  <select id="asha-report-zone" class="form-control" required>
+                    <option value="Zone C" selected>Zone C — Urban North Ward</option>
+                    <option value="Zone A">Zone A — South Green Colony</option>
+                    <option value="Zone B">Zone B — East Lake District</option>
+                    <option value="Zone E">Zone E — Central Railway Colony</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="form-label">Observed Symptoms (Select all that apply) *</label>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.35rem;">
+                  <label style="font-size: 0.825rem; display: flex; align-items: center; gap: 0.35rem;">
+                    <input type="checkbox" name="asha-symptoms" value="Watery Diarrhea" checked> Watery Diarrhea
+                  </label>
+                  <label style="font-size: 0.825rem; display: flex; align-items: center; gap: 0.35rem;">
+                    <input type="checkbox" name="asha-symptoms" value="Vomiting" checked> Vomiting
+                  </label>
+                  <label style="font-size: 0.825rem; display: flex; align-items: center; gap: 0.35rem;">
+                    <input type="checkbox" name="asha-symptoms" value="Moderate Fever" checked> Moderate Fever
+                  </label>
+                  <label style="font-size: 0.825rem; display: flex; align-items: center; gap: 0.35rem;">
+                    <input type="checkbox" name="asha-symptoms" value="Abdominal Cramps" checked> Abdominal Cramps
+                  </label>
+                  <label style="font-size: 0.825rem; display: flex; align-items: center; gap: 0.35rem;">
+                    <input type="checkbox" name="asha-symptoms" value="Severe Dehydration"> Dehydration
+                  </label>
+                  <label style="font-size: 0.825rem; display: flex; align-items: center; gap: 0.35rem;">
+                    <input type="checkbox" name="asha-symptoms" value="Jaundice / Yellow Eyes"> Jaundice
+                  </label>
+                  <label style="font-size: 0.825rem; display: flex; align-items: center; gap: 0.35rem;">
+                    <input type="checkbox" name="asha-symptoms" value="Skin Rash"> Skin Rash
+                  </label>
+                  <label style="font-size: 0.825rem; display: flex; align-items: center; gap: 0.35rem;">
+                    <input type="checkbox" name="asha-symptoms" value="Dry Cough"> Dry Cough
+                  </label>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                  <label class="form-label">Severity Assessment *</label>
+                  <select id="asha-report-severity" class="form-control" required>
+                    <option value="Moderate" selected>🟡 Moderate (Multiple symptomatic)</option>
+                    <option value="Severe">🔴 Severe (Urgent doctor attention needed)</option>
+                    <option value="Critical">🚨 Critical (Outbreak cluster risk)</option>
+                    <option value="Mild">🟢 Mild (Routine monitoring)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Symptom Duration *</label>
+                  <input type="text" id="asha-report-duration" class="form-control" value="2 Days" required>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="form-label">Detailed Field Observation & Environmental Notes *</label>
+                <textarea id="asha-report-description" class="form-control" rows="3" required placeholder="E.g., Visited household in Sector 9. Noticed cloudy tap water; 3 family members experiencing loose motions. ORS kit provided."></textarea>
+              </div>
+
+              <div class="privacy-banner" style="margin-bottom: 1.25rem;">
+                <span>ℹ️ Submitting this report updates the Community Risk Engine, notifies Dr. Arishta Sharma, and updates the District Surveillance Command Map.</span>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-block">🚀 Submit Community Health Report</button>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // SUBVIEW: REFERRALS TRACKER (/asha/referrals)
+    // =========================================================================
+    if (subView === 'referrals') {
+      const activeFilter = params.filter || 'all';
+      let filtered = referrals;
+      if (activeFilter === 'pending') filtered = filtered.filter(r => r.status === 'Pending Review' || r.status === 'Scheduled');
+      else if (activeFilter === 'completed') filtered = filtered.filter(r => r.status === 'Completed');
+
+      return `
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
             <div>
-              <h3 style="font-size: 1.15rem; margin-bottom: 0.2rem;">🏥 Doctor Referrals Tracker</h3>
-              <p style="font-size: 0.8rem; color: var(--text-muted);">Track clinical acceptance and consultation progress.</p>
+              <h3 style="font-size: 1.25rem; margin-bottom: 0.2rem;">🏥 Doctor Referrals Tracker</h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted);">Track clinical acceptance, doctor consultations, and treatment progress.</p>
             </div>
-            <button class="btn btn-sm btn-primary" onclick="window.SehatApp.openCreateReferralModal()">+ New</button>
+            <button class="btn btn-sm btn-primary" onclick="window.SehatApp.openCreateReferralModal()">+ New Doctor Referral</button>
+          </div>
+
+          <div style="display: flex; gap: 0.4rem; margin-bottom: 1rem;">
+            <button class="btn btn-sm ${activeFilter === 'all' ? 'btn-primary' : 'btn-outline'}" onclick="window.SehatRouter.navigate('/asha/referrals')">All (${referrals.length})</button>
+            <button class="btn btn-sm ${activeFilter === 'pending' ? 'btn-primary' : 'btn-outline'}" onclick="window.SehatRouter.navigate('/asha/referrals?filter=pending')">Pending Review (${referrals.filter(r => r.status !== 'Completed').length})</button>
+            <button class="btn btn-sm ${activeFilter === 'completed' ? 'btn-primary' : 'btn-outline'}" onclick="window.SehatRouter.navigate('/asha/referrals?filter=completed')">Completed (${referrals.filter(r => r.status === 'Completed').length})</button>
           </div>
 
           <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-            ${referrals.map(ref => `
+            ${filtered.length === 0 ? `
+              <div class="card" style="text-align: center; padding: 2rem;">
+                <p style="color: var(--text-muted);">No referrals recorded under this view.</p>
+              </div>
+            ` : filtered.map(ref => `
               <div class="card" style="border-left: 4px solid var(--accent-purple);">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                   <div>
                     <h4 style="font-size: 1rem; margin-bottom: 0.15rem;">${ref.citizenName} (${ref.citizenId})</h4>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">Referred to: <strong>${ref.doctorName}</strong></div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Referred to: <strong>${ref.doctorName}</strong> • ${ref.facility || 'UCHC-4'}</div>
                   </div>
                   <span class="badge ${ref.status === 'Completed' ? 'badge-normal' : 'badge-purple'}">${ref.status}</span>
                 </div>
-                <div style="font-size: 0.8rem; margin: 0.4rem 0;">${ref.reason}</div>
-                <div style="font-size: 0.725rem; color: var(--text-muted); border-top: 1px solid var(--border-subtle); padding-top: 0.4rem;">
-                  Scheduled: ${ref.date} • Urgency: <strong>${ref.urgency}</strong>
+                <div style="font-size: 0.825rem; margin: 0.4rem 0;">${ref.reason}</div>
+                ${ref.notes ? `<div style="font-size: 0.775rem; color: var(--text-muted); font-style: italic; margin-bottom: 0.35rem;">Notes: "${ref.notes}"</div>` : ''}
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 0.4rem; font-size: 0.75rem;">
+                  <span>Scheduled: <strong>${ref.date}</strong> • Urgency: <strong>${ref.urgency}</strong></span>
+                  <button class="btn btn-sm btn-outline" onclick="window.SehatRouter.navigate('/asha/citizens/${ref.citizenId}')">View Citizen →</button>
                 </div>
               </div>
             `).join('')}
@@ -2340,55 +2899,228 @@ window.SehatApp = {
       `;
     }
 
-    // --- DEFAULT: OVERVIEW ---
+    // =========================================================================
+    // SUBVIEW: FOLLOW-UPS TRACKER (/asha/follow-ups)
+    // =========================================================================
+    if (subView === 'followups') {
+      const followupCitizens = citizens.filter(c => c.monitoringStatus === 'Follow-up Required' || c.monitoringStatus === 'Active Observation');
+
+      return `
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div>
+              <h3 style="font-size: 1.25rem; margin-bottom: 0.2rem;">🔄 Follow-up Cases Manager</h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted);">Track recovery trajectory and resolve follow-up milestones.</p>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="window.SehatApp.openLogVisitModal()">+ Log Follow-up Visit</button>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            ${followupCitizens.map(c => `
+              <div class="card" style="border-left: 4px solid var(--accent-purple);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                  <div>
+                    <h4 style="font-size: 1rem; margin-bottom: 0.1rem;">${c.name} (${c.id})</h4>
+                    <div style="font-size: 0.775rem; color: var(--text-muted);">Family: ${c.familyId} • Next Due: <strong>${c.nextFollowUp || '24 August'}</strong></div>
+                  </div>
+                  <span class="badge ${c.monitoringStatus === 'Follow-up Required' ? 'badge-watch' : 'badge-normal'}">${c.monitoringStatus}</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin: 0.3rem 0;">📍 ${c.address || 'Sector 9, Zone C'} • 📞 ${c.phone || c.mobile || '+91 98765 43210'}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 0.5rem; margin-top: 0.4rem;">
+                  <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.775rem;">
+                    <span>Update Case:</span>
+                    <select class="form-control" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onchange="window.SehatApp.handleUpdateCitizenStatus('${c.id}', this.value)">
+                      <option value="Follow-up Required" ${c.monitoringStatus === 'Follow-up Required' ? 'selected' : ''}>Follow-up Required</option>
+                      <option value="Routine Monitoring" ${c.monitoringStatus === 'Routine Monitoring' ? 'selected' : ''}>Resolved (Routine)</option>
+                      <option value="Active Observation" ${c.monitoringStatus === 'Active Observation' ? 'selected' : ''}>Active Observation</option>
+                    </select>
+                  </div>
+                  <div style="display: flex; gap: 0.4rem;">
+                    <button class="btn btn-sm btn-secondary" onclick="window.SehatApp.openLogVisitModal('${c.id}')">📋 Log Visit</button>
+                    <button class="btn btn-sm btn-outline" onclick="window.SehatApp.openCreateReferralModal('${c.id}')">🏥 Refer</button>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // SUBVIEW: HEALTH ALERTS & FIELD VERIFICATION (/asha/alerts)
+    // =========================================================================
+    if (subView === 'alerts') {
+      const earlyWarnings = state.earlyWarnings || [];
+
+      return `
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div>
+              <h3 style="font-size: 1.25rem; margin-bottom: 0.2rem;">🚨 Early Warning Alerts & Ward Risk</h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted);">Real-time epidemiological cluster signals requiring field verification.</p>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="window.SehatUI.openAshaVerificationModal('Zone C')">✓ Perform Field Verification</button>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            ${earlyWarnings.map(w => `
+              <div class="card" style="border-left: 4px solid ${w.riskScore > 75 ? 'var(--risk-high-border)' : 'var(--risk-watch-border)'};">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                  <div>
+                    <span class="badge ${w.riskScore > 75 ? 'badge-high' : 'badge-watch'}"><span class="badge-dot"></span> Risk Score: ${w.riskScore}/100</span>
+                    <span style="font-weight: 700; margin-left: 0.5rem;">${w.zone}</span>
+                  </div>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">${w.timestamp}</span>
+                </div>
+
+                <h4 style="font-size: 1.05rem; margin-bottom: 0.35rem;">${w.title}</h4>
+
+                <div style="background: var(--bg-surface-subtle); padding: 0.75rem; border-radius: var(--radius-md); margin: 0.5rem 0;">
+                  <div style="font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">Detected Signals:</div>
+                  <ul style="padding-left: 1.25rem; font-size: 0.8rem; color: var(--text-muted);">
+                    ${(w.signals || []).map(s => `<li>${s}</li>`).join('')}
+                  </ul>
+                </div>
+
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                  <strong>Recommended Action:</strong> ${w.actionRecommendation || 'Survey households, inspect water source, distribute ORS packs.'}
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 0.6rem;">
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">Status: <strong>${w.status}</strong></span>
+                  <button class="btn btn-sm btn-primary" onclick="window.SehatUI.openAshaVerificationModal('${w.zone}')">
+                    ✓ Perform Field Verification
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // SUBVIEW: NOTIFICATIONS (/asha/notifications)
+    // =========================================================================
+    if (subView === 'notifications') {
+      const notifs = window.SehatState.getNotificationsForRole('asha');
+
+      return `
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div>
+              <h3 style="font-size: 1.25rem; margin-bottom: 0.2rem;">🔔 ASHA Notifications & Alerts Feed</h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted);">Clinical updates, referral statuses, and community surveillance warnings.</p>
+            </div>
+            <button class="btn btn-sm btn-secondary" onclick="window.SehatState.markAllNotificationsRead('asha'); window.SehatApp.renderCurrentView();">
+              Mark all as read
+            </button>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+            ${notifs.length === 0 ? `
+              <div class="card" style="text-align: center; padding: 2rem;">
+                <p style="color: var(--text-muted);">No new notifications at this time.</p>
+              </div>
+            ` : notifs.map(n => `
+              <div class="card" style="padding: 0.85rem 1.15rem; ${n.read ? 'opacity: 0.85;' : 'border-left: 4px solid var(--accent-purple);'}" onclick="window.SehatState.markNotificationRead('${n.id}'); window.SehatApp.renderCurrentView();">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                  <strong style="font-size: 0.9rem;">${n.title}</strong>
+                  <span style="font-size: 0.725rem; color: var(--text-muted);">${n.time || 'Just now'}</span>
+                </div>
+                <div style="font-size: 0.825rem; color: var(--text-muted);">${n.message}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // DEFAULT SUBVIEW: OVERVIEW DASHBOARD (/asha/dashboard)
+    // =========================================================================
+    const dueTasksCount = tasks.filter(t => t.status !== 'Completed').length;
+    const activeRefCounts = referrals.filter(r => r.status !== 'Completed').length;
+
     return `
       <div>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem;">
-          <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.6rem; text-align: center;">
-            <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">Visits Due</div>
-            <div style="font-size: 1.35rem; font-family: var(--font-mono); font-weight: 800; color: var(--primary-600);">${asha.pendingFollowupsCount || 3}</div>
+        <!-- Clickable KPI Summary Cards -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.85rem; margin-bottom: 1.35rem;">
+          <div class="card" style="cursor: pointer; padding: 0.85rem; border-left: 4px solid var(--accent-emerald);" onclick="window.SehatRouter.navigate('/asha/citizens')">
+            <div style="font-size: 0.725rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Assigned Citizens</div>
+            <div style="font-size: 1.5rem; font-family: var(--font-mono); font-weight: 800; color: var(--accent-emerald);">${citizens.length}</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">Click to view directory →</div>
           </div>
-          <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.6rem; text-align: center;">
-            <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">Referrals</div>
-            <div style="font-size: 1.35rem; font-family: var(--font-mono); font-weight: 800; color: var(--accent-purple);">${(state.referrals || []).length}</div>
+          <div class="card" style="cursor: pointer; padding: 0.85rem; border-left: 4px solid var(--primary-600);" onclick="window.SehatRouter.navigate('/asha/health-visits')">
+            <div style="font-size: 0.725rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Visits Due</div>
+            <div style="font-size: 1.5rem; font-family: var(--font-mono); font-weight: 800; color: var(--primary-600);">${dueTasksCount}</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">Click to view visits queue →</div>
           </div>
-          <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.6rem; text-align: center;">
-            <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">Zone C Risk</div>
-            <div style="font-size: 1.35rem; font-family: var(--font-mono); font-weight: 800; color: var(--risk-high-border);">84/100</div>
+          <div class="card" style="cursor: pointer; padding: 0.85rem; border-left: 4px solid var(--accent-purple);" onclick="window.SehatRouter.navigate('/asha/referrals')">
+            <div style="font-size: 0.725rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Active Referrals</div>
+            <div style="font-size: 1.5rem; font-family: var(--font-mono); font-weight: 800; color: var(--accent-purple);">${activeRefCounts}</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">Click to track referrals →</div>
+          </div>
+          <div class="card" style="cursor: pointer; padding: 0.85rem; border-left: 4px solid var(--risk-high-border);" onclick="window.SehatRouter.navigate('/asha/alerts')">
+            <div style="font-size: 0.725rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Zone C Risk</div>
+            <div style="font-size: 1.5rem; font-family: var(--font-mono); font-weight: 800; color: var(--risk-high-border);">84/100</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">High Risk Cluster Signal →</div>
           </div>
         </div>
 
-        <div class="card" style="border-left: 4px solid var(--risk-high-border); margin-bottom: 1.25rem;">
+        <!-- High Priority Cluster Signal Alert -->
+        <div class="card" style="border-left: 4px solid var(--risk-high-border); margin-bottom: 1.35rem;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <span class="badge badge-high"><span class="badge-dot"></span> Risk Score: 84/100</span>
-            <span style="font-size: 0.75rem; color: var(--text-muted);">Zone C North Ward</span>
+            <span class="badge badge-high"><span class="badge-dot"></span> Risk Score: 84/100 (HIGH OUTBREAK RISK)</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Zone C — Urban North Ward</span>
           </div>
-          <h4 style="font-size: 1rem; margin-bottom: 0.35rem;">🚨 Gastrointestinal Cluster Signal</h4>
-          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem;">31 symptom reports vs 10 baseline. Field survey verification required.</p>
-          <button class="btn btn-primary btn-block btn-sm" onclick="window.SehatUI.openAshaVerificationModal('Zone C')">
-            ✓ Perform Field Verification
-          </button>
+          <h4 style="font-size: 1.05rem; margin-bottom: 0.35rem;">🚨 Gastrointestinal Cluster Outbreak Signal</h4>
+          <p style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+            31 symptom reports recorded vs 10 historical baseline (+42% surge). 4 distinct household clusters identified.
+          </p>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button class="btn btn-primary btn-sm" onclick="window.SehatUI.openAshaVerificationModal('Zone C')">
+              ✓ Perform Field Survey Verification
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="window.SehatRouter.navigate('/asha/report-health-issue')">
+              📝 Report Community Case
+            </button>
+          </div>
         </div>
 
-        <div style="margin-bottom: 0.75rem; font-weight: 800; font-size: 0.95rem;">Assigned Household Tasks:</div>
-        ${state.ashaTasks.map(t => `
-          <div class="followup-task-item" style="margin-bottom: 0.75rem; padding: 0.85rem;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-              <div>
-                <h4 style="font-size: 0.95rem;">${t.headName} (${t.familyId})</h4>
-                <div style="font-size: 0.775rem; color: var(--text-muted);">📍 ${t.address}</div>
+        <!-- Assigned Household Tasks & Scheduled Visits -->
+        <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+          <h4 style="font-size: 1rem;">📋 Assigned Household Tasks & Due Rounds</h4>
+          <button class="btn btn-sm btn-outline" onclick="window.SehatRouter.navigate('/asha/health-visits')">View All Visits →</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          ${tasks.map(t => `
+            <div class="followup-task-item" style="margin-bottom: 0; padding: 0.85rem; border-left: 4px solid ${t.status === 'Completed' ? 'var(--accent-emerald)' : t.priority === 'High' ? 'var(--risk-high-border)' : 'var(--accent-purple)'};">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                  <h4 style="font-size: 0.95rem;">${t.headName} (${t.familyId})</h4>
+                  <div style="font-size: 0.775rem; color: var(--text-muted);">📍 ${t.address}</div>
+                </div>
+                <span class="badge ${t.status === 'Completed' ? 'badge-normal' : t.priority === 'High' ? 'badge-high' : 'badge-watch'}">
+                  ${t.status || 'Scheduled'}
+                </span>
               </div>
-              <span class="badge ${t.priority === 'High' ? 'badge-high' : 'badge-watch'}">${t.priority}</span>
+              <div style="font-size: 0.825rem; margin: 0.4rem 0;">${t.reason}</div>
+              <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 0.5rem; font-size: 0.75rem;">
+                <span>Due Date: <strong>${t.date}</strong> ${t.completedAt ? `• (${t.completedAt})` : ''}</span>
+                ${t.status !== 'Completed' ? `
+                  <button class="btn btn-sm btn-primary" onclick="window.SehatApp.handleCompleteAshaTask('${t.id}')">
+                    ✓ Complete Visit
+                  </button>
+                ` : `
+                  <span style="color: var(--accent-emerald); font-weight: 700;">✓ Completed</span>
+                `}
+              </div>
             </div>
-            <div style="font-size: 0.8rem; margin: 0.4rem 0;">${t.reason}</div>
-            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 0.5rem; font-size: 0.75rem;">
-              <span>Date: <strong>${t.date}</strong></span>
-              <button class="btn btn-sm btn-primary" onclick="window.SehatUI.showToast('Visit Completed', 'Household record updated.', 'success')">
-                Complete Visit
-              </button>
-            </div>
-          </div>
-        `).join('')}
+          `).join('')}
+        </div>
       </div>
     `;
   },
@@ -2586,27 +3318,84 @@ window.SehatApp = {
 
           <div class="profile-grid">
             <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+              <!-- 1. DYNAMIC OFFICIAL IDENTIFIERS CARD -->
               <div class="card">
                 <div class="card-header">
-                  <div class="card-title"><span>🪪</span> Official Identifiers</div>
+                  <div class="card-title"><span>🪪</span> Official Identifiers & Hierarchy</div>
                 </div>
 
-                <div class="profile-field-row">
-                  <span class="profile-field-label">National Health (ABHA) ID</span>
-                  <span class="abha-badge">${user.abhaId || '14-8921-4320-1092'}</span>
-                </div>
-                ${user.familyId ? `
+                ${user.role === 'doctor' ? `
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">Medical Reg. Number (NMC / SMC)</span>
+                    <span class="abha-badge" style="background: rgba(14, 165, 233, 0.15); color: var(--accent-blue); border-color: var(--accent-blue);">${user.regNumber || user.regNo || 'NMC-UP-48921'}</span>
+                  </div>
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">Healthcare Facility / Hospital</span>
+                    <span class="profile-field-value" style="font-weight: 700;">🏥 ${user.facility || user.hospital || 'Urban Community Health Centre (UCHC-4)'}</span>
+                  </div>
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">Clinical Specialty</span>
+                    <span class="profile-field-value">${user.specialty || 'General Medicine & Clinical Surveillance'}</span>
+                  </div>
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">Assigned District / Jurisdiction</span>
+                    <span class="profile-field-value">📍 ${user.district || 'Fatehpur'}, ${user.state || 'Uttar Pradesh'}</span>
+                  </div>
+                ` : user.role === 'asha' ? `
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">ASHA Worker Badge ID</span>
+                    <span class="abha-badge" style="background: rgba(168, 85, 247, 0.15); color: var(--accent-purple); border-color: var(--accent-purple);">${user.badgeId || user.id || 'ASHA-UP-FTP-204'}</span>
+                  </div>
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">Attached Health Sub-Centre (HSC)</span>
+                    <span class="profile-field-value" style="font-weight: 700;">🏥 ${user.healthCenter || 'Haswa Sub-Centre / UCHC-4'}</span>
+                  </div>
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">Assigned Village / Urban Ward</span>
+                    <span class="profile-field-value">🏡 ${user.village || user.town || user.ward || user.area || 'Haswa / Bilinda'}</span>
+                  </div>
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">Administrative Block</span>
+                    <span class="profile-field-value">📍 ${user.block || 'Haswa'}, ${user.district || 'Fatehpur'}</span>
+                  </div>
+                ` : user.role === 'admin' ? `
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">IDSP Officer Designation Code</span>
+                    <span class="abha-badge" style="background: rgba(239, 68, 68, 0.15); color: var(--accent-red); border-color: var(--accent-red);">${user.id || 'IDSP-DIR-01'}</span>
+                  </div>
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">Surveillance Authority</span>
+                    <span class="profile-field-value" style="font-weight: 700;">🏛️ Integrated Disease Surveillance Programme (IDSP)</span>
+                  </div>
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">Administrative Jurisdiction</span>
+                    <span class="profile-field-value">📍 ${user.jurisdiction || 'State-Level Surveillance (Uttar Pradesh)'}</span>
+                  </div>
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">Command & Control Level</span>
+                    <span class="badge badge-high">● Tier-1 Full Administrative Access</span>
+                  </div>
+                ` : `
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">National Health (ABHA) ID</span>
+                    <span class="abha-badge">${user.abhaId || (user.id ? '14-8921-4320-' + user.id.replace(/\\D/g,'').padStart(4,'1092').slice(-4) : '14-8921-4320-1092')}</span>
+                  </div>
                   <div class="profile-field-row">
                     <span class="profile-field-label">Household Family ID</span>
-                    <span class="profile-field-value" style="font-family: var(--font-mono);">${user.familyId}</span>
+                    <span class="profile-field-value" style="font-family: var(--font-mono); font-weight: 700;">${user.familyId || ('FAM-' + (user.id || 'NEW'))}</span>
                   </div>
-                ` : ''}
-                <div class="profile-field-row">
-                  <span class="profile-field-label">Surveillance Ward</span>
-                  <span class="profile-field-value">${user.zone || user.assignedZone || user.area || 'Zone C'}</span>
-                </div>
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">Village / Town / Ward</span>
+                    <span class="profile-field-value">🏡 ${user.village || user.town || user.ward || user.address || 'Haswa'}</span>
+                  </div>
+                  <div class="profile-field-row">
+                    <span class="profile-field-label">Block & District</span>
+                    <span class="profile-field-value">📍 ${user.block || 'Haswa'} Block, ${user.district || 'Fatehpur'} (${user.state || 'UP'})</span>
+                  </div>
+                `}
               </div>
 
+              <!-- 2. EDIT PERSONAL & LOCATION DETAILS -->
               <div class="card">
                 <div class="card-header">
                   <div class="card-title"><span>✏️</span> Edit Personal Details</div>
@@ -2646,40 +3435,89 @@ window.SehatApp = {
                     </div>
                     <div class="form-group">
                       <label class="form-label">Emergency Contact</label>
-                      <input type="text" id="edit-emergency" class="form-control" value="${user.emergencyContact || '+91 98765 00000 (Father)'}">
+                      <input type="text" id="edit-emergency" class="form-control" value="${user.emergencyContact || '+91 98765 00000 (Family)'}">
+                    </div>
+                  </div>
+
+                  <!-- Location Hierarchy (India -> State -> District -> Block) -->
+                  <div style="background: var(--bg-surface-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 0.85rem;">
+                    <div style="font-weight: 800; font-size: 0.85rem; margin-bottom: 0.65rem; color: var(--primary-700); display: flex; align-items: center; gap: 0.35rem;">
+                      <span>📍</span> Administrative Location (India LGD Standard)
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+                      <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 0.75rem;">Country</label>
+                        <select id="edit-country" class="form-control" disabled style="background: var(--bg-surface);">
+                          <option value="India" selected>🇮🇳 India</option>
+                        </select>
+                      </div>
+                      <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 0.75rem;">State / UT *</label>
+                        <select id="edit-state" class="form-control" required>
+                          <option value="">Loading States...</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+                      <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 0.75rem;">District *</label>
+                        <select id="edit-district" class="form-control" required disabled>
+                          <option value="">-- Select District (Select State first) --</option>
+                        </select>
+                      </div>
+                      <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 0.75rem;">Administrative Block / Sub-District *</label>
+                        <select id="edit-block" class="form-control" required disabled>
+                          <option value="">-- Select Block (Select District first) --</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label class="form-label" style="font-size: 0.75rem;">Village / Town / Ward</label>
+                      <input type="text" id="edit-village" class="form-control" value="${user.village || user.town || user.ward || ''}" placeholder="e.g. Haswa, Bilinda, Chak Kazi...">
                     </div>
                   </div>
 
                   <div class="form-group">
-                    <label class="form-label">Residential Address</label>
-                    <input type="text" id="edit-address" class="form-control" value="${user.address || 'House #42, Sector 9, Zone C'}">
+                    <label class="form-label">Residential / Local Address</label>
+                    <input type="text" id="edit-address" class="form-control" value="${user.address || ''}" placeholder="e.g. Main Road, Near Primary Health Centre">
                   </div>
 
-                  <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem;">
-                    Save Profile Changes
+                  <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem; font-weight: 700; width: 100%;">
+                    💾 Save Profile & Return to Dashboard
                   </button>
                 </form>
               </div>
             </div>
 
-            <!-- Right Switcher -->
+            <!-- 3. SWITCH ACTIVE ACCOUNT CARD -->
             <div style="display: flex; flex-direction: column; gap: 1.25rem;">
               <div class="card">
                 <div class="card-header">
                   <div class="card-title"><span>🔄</span> Switch Active Account</div>
                 </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+                  Seamlessly switch between verified stakeholder roles to test role-specific dashboards and permissions.
+                </p>
                 <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                  <button class="btn btn-sm btn-secondary" onclick="window.SehatState.login('rahul.sharma@example.com', 'password123', 'citizen'); window.SehatRouter.navigate('/citizen/dashboard');">
-                    👤 Rahul (Citizen)
+                  <button class="btn btn-sm ${user.role === 'citizen' ? 'btn-primary' : 'btn-secondary'}" onclick="window.SehatApp.switchAccount('rahul.sharma@example.com', 'password123', 'citizen')" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>👤 Rahul Sharma (Citizen)</span>
+                    ${user.role === 'citizen' ? '<span class="badge badge-normal" style="font-size: 0.65rem;">Active</span>' : ''}
                   </button>
-                  <button class="btn btn-sm btn-secondary" onclick="window.SehatState.login('dr.arishta@health.gov.in', 'password123', 'doctor'); window.SehatRouter.navigate('/doctor/dashboard');">
-                    🩺 Dr. Arishta (Doctor)
+                  <button class="btn btn-sm ${user.role === 'doctor' ? 'btn-primary' : 'btn-secondary'}" onclick="window.SehatApp.switchAccount('dr.arishta@health.gov.in', 'password123', 'doctor')" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>🩺 Dr. Arishta (Doctor)</span>
+                    ${user.role === 'doctor' ? '<span class="badge badge-normal" style="font-size: 0.65rem;">Active</span>' : ''}
                   </button>
-                  <button class="btn btn-sm btn-secondary" onclick="window.SehatState.login('sunita.asha@health.gov.in', 'password123', 'asha'); window.SehatRouter.navigate('/asha/dashboard');">
-                    👩‍⚕️ Sunita (ASHA)
+                  <button class="btn btn-sm ${user.role === 'asha' ? 'btn-primary' : 'btn-secondary'}" onclick="window.SehatApp.switchAccount('sunita.asha@health.gov.in', 'password123', 'asha')" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>👩‍⚕️ Sunita Devi (ASHA Worker)</span>
+                    ${user.role === 'asha' ? '<span class="badge badge-normal" style="font-size: 0.65rem;">Active</span>' : ''}
                   </button>
-                  <button class="btn btn-sm btn-secondary" onclick="window.SehatState.login('director.idsp@nic.in', 'password123', 'admin'); window.SehatRouter.navigate('/admin/dashboard');">
-                    🏛️ Director Paul (Admin)
+                  <button class="btn btn-sm ${user.role === 'admin' ? 'btn-primary' : 'btn-secondary'}" onclick="window.SehatApp.switchAccount('director.idsp@nic.in', 'password123', 'admin')" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>🏛️ Director Paul (Admin / IDSP)</span>
+                    ${user.role === 'admin' ? '<span class="badge badge-normal" style="font-size: 0.65rem;">Active</span>' : ''}
                   </button>
                 </div>
               </div>
@@ -3376,6 +4214,128 @@ window.SehatApp = {
     window.SehatUI.openModal('modal-medical-record-form');
   },
 
+  handleCompleteAshaTask(taskId) {
+    const success = window.SehatState.completeAshaTask(taskId);
+    if (success) {
+      window.SehatUI.showToast('Task Completed', 'Household round and visit verified successfully.', 'success');
+      this.renderCurrentView();
+    }
+  },
+
+  handleUpdateCitizenStatus(citizenId, status) {
+    const success = window.SehatState.updateCitizenMonitoringStatus(citizenId, status);
+    if (success) {
+      window.SehatUI.showToast('Status Updated', `Monitoring status set to ${status}.`, 'info');
+      this.renderCurrentView();
+    }
+  },
+
+  openLogVisitModal(defaultCitizenId = 'C10291') {
+    let modal = document.getElementById('modal-log-household-visit');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-log-household-visit';
+      modal.className = 'modal-backdrop';
+      document.body.appendChild(modal);
+    }
+
+    const citizens = window.SehatState.getState().userAccounts.filter(u => u.role === 'citizen');
+    const selectedCit = citizens.find(c => c.id === defaultCitizenId) || citizens[0] || {};
+
+    modal.innerHTML = `
+      <div class="modal-container" style="max-width: 580px;">
+        <div class="modal-header">
+          <h3 style="font-size: 1.15rem;">📋 Log Household Health Visit</h3>
+          <button class="icon-btn" onclick="window.SehatUI.closeModal('modal-log-household-visit')">✕</button>
+        </div>
+        <form id="log-household-visit-form">
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">Select Citizen / Household Head *</label>
+              <select id="visit-citizen-select" class="form-control" required>
+                ${citizens.map(c => `
+                  <option value="${c.id}" ${c.id === defaultCitizenId ? 'selected' : ''}>${c.name} (${c.id}) — Family: ${c.familyId}</option>
+                `).join('')}
+              </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;">
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.75rem;">Blood Pressure</label>
+                <input type="text" id="visit-bp" class="form-control" value="120/80" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.75rem;">Pulse (bpm)</label>
+                <input type="text" id="visit-pulse" class="form-control" value="76" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.75rem;">Temp (°F)</label>
+                <input type="text" id="visit-temp" class="form-control" value="98.6" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.75rem;">SpO2 (%)</label>
+                <input type="text" id="visit-spo2" class="form-control" value="99" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Monitoring Status *</label>
+              <select id="visit-status-select" class="form-control" required>
+                <option value="Routine Monitoring" selected>Routine Monitoring (Stable)</option>
+                <option value="Follow-up Required">Follow-up Required</option>
+                <option value="Active Observation">Active Observation</option>
+                <option value="High Risk">High Risk (Doctor Referral Advised)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Field Observations & Household Survey Notes *</label>
+              <textarea id="visit-observations" class="form-control" rows="2" placeholder="Record hydration status, water hygiene, family symptom check..." required>Conducted routine household survey. Water source inspected. Vitals within stable parameters.</textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Action Taken / Supplies Provided</label>
+              <input type="text" id="visit-action" class="form-control" value="Provided ORS packets & chlorine disinfection tablets.">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="window.SehatUI.closeModal('modal-log-household-visit')">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Visit Record →</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.getElementById('log-household-visit-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const citizenId = document.getElementById('visit-citizen-select').value;
+      const citizen = citizens.find(c => c.id === citizenId) || {};
+      const bp = document.getElementById('visit-bp').value;
+      const pulse = document.getElementById('visit-pulse').value;
+      const temp = document.getElementById('visit-temp').value;
+      const spo2 = document.getElementById('visit-spo2').value;
+      const monitoringStatus = document.getElementById('visit-status-select').value;
+      const observations = document.getElementById('visit-observations').value;
+      const actionTaken = document.getElementById('visit-action').value;
+
+      window.SehatState.addHouseholdVisit({
+        citizenId,
+        citizenName: citizen.name || 'Citizen',
+        familyId: citizen.familyId || 'FAM-10284',
+        vitals: { bp, pulse, temp, spo2 },
+        monitoringStatus,
+        observations,
+        actionTaken
+      });
+
+      window.SehatUI.closeModal('modal-log-household-visit');
+      window.SehatUI.showToast('Household Visit Logged', `Recorded visit for ${citizen.name}.`, 'success');
+      this.renderCurrentView();
+    });
+
+    window.SehatUI.openModal('modal-log-household-visit');
+  },
+
   deleteRecord(id) {
     if (confirm('Are you sure you want to delete this medical record?')) {
       window.SehatState.deleteMedicalRecord(id);
@@ -3385,6 +4345,7 @@ window.SehatApp = {
   },
 
   bindAshaEvents() {
+    // 1. Verification Modal Submit
     const ashaForm = document.getElementById('asha-verify-form');
     if (ashaForm) {
       ashaForm.addEventListener('submit', (e) => {
@@ -3402,6 +4363,50 @@ window.SehatApp = {
 
         window.SehatUI.closeAllModals();
         window.SehatUI.showToast('Verification Recorded', `Zone ${zoneId} verified as ${outcome}.`, 'success');
+        this.renderCurrentView();
+      });
+    }
+
+    // 2. Symptom / Cluster Report Form Submit
+    const reportForm = document.getElementById('asha-report-symptom-form');
+    if (reportForm) {
+      reportForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const citizenId = document.getElementById('asha-report-citizen').value;
+        const zone = document.getElementById('asha-report-zone').value;
+        const severity = document.getElementById('asha-report-severity').value;
+        const duration = document.getElementById('asha-report-duration').value;
+        const description = document.getElementById('asha-report-description').value;
+
+        const checkedSymptoms = Array.from(document.querySelectorAll('input[name="asha-symptoms"]:checked')).map(cb => cb.value);
+
+        const citizens = window.SehatState.getState().userAccounts.filter(u => u.role === 'citizen');
+        const citizen = citizens.find(c => c.id === citizenId) || {};
+
+        window.SehatState.addHealthReport({
+          citizenId,
+          citizenName: citizen.name || 'Community Member',
+          familyId: citizen.familyId || 'FAM-10284',
+          zone,
+          symptoms: checkedSymptoms.length > 0 ? checkedSymptoms : ['Fever', 'Diarrhea'],
+          severity,
+          description: `${description} (Duration: ${duration})`
+        });
+
+        window.SehatUI.showToast('Report Submitted', 'Community health issue logged to surveillance engine.', 'success');
+        window.SehatRouter.navigate('/asha/alerts');
+      });
+    }
+
+    // 3. Citizen Live Search Binding
+    const searchInput = document.getElementById('asha-citizen-search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        this.ashaCitizenSearchQuery = e.target.value;
+        clearTimeout(this._searchDebounce);
+        this._searchDebounce = setTimeout(() => {
+          this.renderCurrentView();
+        }, 300);
       });
     }
   },
@@ -3436,6 +4441,20 @@ window.SehatApp = {
       });
     }
 
+    const user = window.SehatState.currentUser || window.SehatState.getState().users.citizen || {};
+    const stateVal = user.state || 'Uttar Pradesh';
+    const districtVal = user.district || 'Fatehpur';
+    const blockVal = user.block || 'Teliyani';
+
+    if (window.SehatLocations) {
+      window.SehatLocations.bindLocationDropdowns({
+        stateSelectId: 'edit-state',
+        districtSelectId: 'edit-district',
+        blockSelectId: 'edit-block',
+        initial: { state: stateVal, district: districtVal, block: blockVal }
+      });
+    }
+
     const editForm = document.getElementById('profile-edit-form');
     if (editForm) {
       editForm.addEventListener('submit', (e) => {
@@ -3447,10 +4466,64 @@ window.SehatApp = {
         const gender = document.getElementById('edit-gender')?.value;
         const emergencyContact = document.getElementById('edit-emergency')?.value;
         const address = document.getElementById('edit-address')?.value;
+        const country = 'India';
+        const state = document.getElementById('edit-state')?.value || '';
+        const district = document.getElementById('edit-district')?.value || '';
+        const block = document.getElementById('edit-block')?.value || '';
 
-        window.SehatState.updateUserProfile({ name, mobile, email, dob, gender, emergencyContact, address });
-        window.SehatUI.showToast('Profile Saved', 'Your personal details have been updated.', 'success');
+        // Validate location
+        if (window.SehatLocations && state && district) {
+          const locVal = window.SehatLocations.validateLocation(state, district, block);
+          if (!locVal.valid) {
+            window.SehatUI.showToast('Invalid Location', locVal.error, 'error');
+            return;
+          }
+        }
+
+        const village = document.getElementById('edit-village')?.value || '';
+        window.SehatState.updateUserProfile({
+          name, mobile, email, dob, gender, emergencyContact, address,
+          village, ward: village, country, state, district, block
+        });
+        window.SehatUI.showToast('Profile Saved Successfully', 'Redirecting to your main dashboard...', 'success');
+
+        // Automatically navigate back to Main Dashboard and re-render
+        const currentRole = window.SehatState.getCurrentRole() || user.role || 'citizen';
+        setTimeout(() => {
+          window.SehatRouter.navigate(`/${currentRole}/dashboard`);
+          this.renderCurrentView();
+        }, 350);
       });
+    }
+  },
+
+  openEditProfileModal() {
+    const user = window.SehatState.getCurrentUser() || {};
+    const role = window.SehatState.getCurrentRole() || user.role || 'citizen';
+    window.SehatRouter.navigate(`/${role}/profile`);
+  },
+
+  async switchAccount(email, password, role) {
+    window.SehatUI.showToast('Switching Role', `Authenticating as ${role.toUpperCase()}...`, 'info');
+    try {
+      const res = await window.SehatState.login(email, password, role);
+      if (res && res.authenticated) {
+        window.SehatUI.showToast('Role Switched', `Logged in as ${res.user.name} (${role.toUpperCase()})`, 'success');
+        window.SehatRouter.navigate(`/${role}/dashboard`);
+        this.renderCurrentView();
+      } else {
+        const defaultUser = window.SehatState.getState().users[role];
+        window.SehatState.hydrateGoogleSession({ role, user: defaultUser });
+        window.SehatUI.showToast('Role Switched', `Active profile: ${defaultUser?.name || role.toUpperCase()}`, 'success');
+        window.SehatRouter.navigate(`/${role}/dashboard`);
+        this.renderCurrentView();
+      }
+    } catch (err) {
+      console.warn('Switch account fallback:', err);
+      const defaultUser = window.SehatState.getState().users[role];
+      window.SehatState.hydrateGoogleSession({ role, user: defaultUser });
+      window.SehatRouter.navigate(`/${role}/dashboard`);
+      this.renderCurrentView();
     }
   }
 };

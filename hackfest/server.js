@@ -13,6 +13,23 @@ if (fs.existsSync(envFile)) {
     if (match && !process.env[match[1]]) process.env[match[1]] = match[2].replace(/^['"]|['"]$/g, '');
   }
 }
+
+// Database Adapter (Supabase PostgreSQL with Local Fallback)
+const db = require('./db/supabase');
+
+// Indian Administrative Location Manager
+const locations = require('./js/locations');
+try {
+  const locData = JSON.parse(fs.readFileSync(path.join(root, 'data', 'india_locations.json'), 'utf8'));
+  locations.setData(locData);
+} catch (e) {
+  console.warn('Locations dataset notice:', e.message);
+}
+
+// Uploads directory
+const uploadsDir = path.join(root, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
 let port = Number(process.env.PORT) || 3000;
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -31,12 +48,28 @@ if (fs.existsSync(sessionsFile)) {
     console.warn('Could not load saved sessions:', error.message);
   }
 }
+
+// Connected SSE Realtime Clients for Live Push Notifications
+const sseClients = new Set();
+
+function broadcastEvent(type, payload) {
+  const eventData = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const client of sseClients) {
+    try {
+      client.write(eventData);
+    } catch (e) {
+      sseClients.delete(client);
+    }
+  }
+}
+
 const demoUsers = [
-  { id: 'C10291', role: 'citizen', name: 'Rahul Sharma', email: 'rahul.sharma@example.com', phone: '+91 98765 43210' },
-  { id: 'DR-1004', role: 'doctor', name: 'Dr. Arishta Sharma', email: 'dr.arishta@health.gov.in', phone: '+91 94567 89012' },
-  { id: 'ASHA-204', role: 'asha', name: 'Sunita Devi', email: 'sunita.asha@health.gov.in', phone: '+91 91234 56789' },
-  { id: 'ADMIN-001', role: 'admin', name: 'Dr. V. K. Paul (Director)', email: 'director.idsp@nic.in', phone: '+91 98111 22233' }
+  { id: 'C10291', role: 'citizen', name: 'Rahul Sharma', email: 'rahul.sharma@example.com', phone: '+91 98765 43210', country: 'India', state: 'Uttar Pradesh', district: 'Fatehpur', block: 'Teliyani' },
+  { id: 'DR-1004', role: 'doctor', name: 'Dr. Arishta Sharma', email: 'dr.arishta@health.gov.in', phone: '+91 94567 89012', country: 'India', state: 'Uttar Pradesh', district: 'Fatehpur', block: 'Teliyani' },
+  { id: 'ASHA-204', role: 'asha', name: 'Sunita Devi', email: 'sunita.asha@health.gov.in', phone: '+91 91234 56789', country: 'India', state: 'Uttar Pradesh', district: 'Fatehpur', block: 'Teliyani' },
+  { id: 'ADMIN-001', role: 'admin', name: 'Dr. V. K. Paul (Director)', email: 'director.idsp@nic.in', phone: '+91 98111 22233', country: 'India', state: 'Delhi (NCT)', district: 'New Delhi', block: 'Connaught Place' }
 ];
+
 let usersChanged = false;
 for (const demoUser of demoUsers) {
   const existingUser = users.find(user => user.email.toLowerCase() === demoUser.email);
@@ -45,12 +78,34 @@ for (const demoUser of demoUsers) {
       existingUser.phone = demoUser.phone;
       usersChanged = true;
     }
+    if (!existingUser.state) {
+      existingUser.country = demoUser.country;
+      existingUser.state = demoUser.state;
+      existingUser.district = demoUser.district;
+      existingUser.block = demoUser.block;
+      usersChanged = true;
+    }
   } else {
     const salt = crypto.randomBytes(16).toString('hex');
     users.push({ ...demoUser, profilePhoto: '', passwordHash: `${salt}:${crypto.scryptSync('password123', salt, 64).toString('hex')}`, createdAt: new Date().toISOString() });
     usersChanged = true;
   }
 }
+
+// Auto-seed Supabase users if connected
+if (db.isSupabaseActive()) {
+  (async () => {
+    try {
+      for (const u of users) {
+        await db.insertUser(u);
+      }
+      console.log('⚡ Synced', users.length, 'users to Supabase database.');
+    } catch (err) {
+      console.warn('⚠️ Supabase initial sync notice:', err.message);
+    }
+  })();
+}
+
 const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
@@ -60,11 +115,16 @@ const mimeTypes = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
-  '.ico': 'image/x-icon'
+  '.pdf': 'application/pdf',
+  '.ico': 'image/x-icon',
+  '.sql': 'text/plain; charset=utf-8'
 };
 
 function sendJson(response, statusCode, data) {
-  response.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+  response.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': '*'
+  });
   response.end(JSON.stringify(data));
   return true;
 }
@@ -133,7 +193,7 @@ if (usersChanged) saveUsers();
 function readBody(request) {
   return new Promise((resolve, reject) => {
     let body = '';
-    request.on('data', chunk => { body += chunk; if (body.length > 1024 * 1024) reject(new Error('Request too large')); });
+    request.on('data', chunk => { body += chunk; if (body.length > 25 * 1024 * 1024) reject(new Error('Request too large')); });
     request.on('end', () => {
       try { resolve(JSON.parse(body || '{}')); } catch { reject(new Error('Invalid JSON')); }
     });
@@ -157,26 +217,269 @@ function validRole(role) {
   return ['citizen', 'doctor', 'asha', 'admin'].includes(role);
 }
 
-function findUser(identifier) {
+async function findUser(identifier) {
+  if (db.isSupabaseActive()) {
+    const dbUser = await db.findUserByIdentifier(identifier);
+    if (dbUser) return dbUser;
+  }
   const value = String(identifier || '').trim().toLowerCase();
   const normalizedPhone = value.replace(/\s+/g, '');
   return users.find(item => item.email.toLowerCase() === value || item.id.toLowerCase() === value || String(item.phone || '').replace(/\s+/g, '') === normalizedPhone);
 }
 
 function publicUser(user) {
-  const { password, passwordHash, providerId, adminInviteCode, ...profile } = user;
+  const { password, passwordHash, password_hash, providerId, provider_id, adminInviteCode, ...profile } = user;
   return profile;
 }
 
-function createSession(user, mode = 'login') {
+async function createSession(user, mode = 'login') {
   const sessionId = crypto.randomBytes(32).toString('hex');
-  sessions.set(sessionId, { role: user.role, mode, user: publicUser(user), createdAt: Date.now(), expiresAt: Date.now() + 86400000 });
+  const sessionData = { role: user.role, mode, user: publicUser(user), createdAt: Date.now(), expiresAt: Date.now() + 86400000 };
+  
+  sessions.set(sessionId, sessionData);
   saveSessions();
+
+  if (db.isSupabaseActive()) {
+    await db.saveSessionToDb(sessionId, sessionData);
+  }
+
   return [`sehat_setu_session=${sessionId}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400`, sessionId];
+}
+
+// AI Syndromic Anomaly & Cluster Detection Algorithm
+function calculateOutbreakPredictions() {
+  const wardBaselines = {
+    'Zone A': { name: 'Zone A — South Green Colony', count: 4, baseline: 5, population: 14200 },
+    'Zone B': { name: 'Zone B — East Lake District', count: 7, baseline: 6, population: 18500 },
+    'Zone C': { name: 'Zone C — Urban North Ward', count: 32, baseline: 10, population: 24800 },
+    'Zone D': { name: 'Zone D — West Industrial Belt', count: 6, baseline: 8, population: 16100 },
+    'Zone E': { name: 'Zone E — Central Railway Colony', count: 19, baseline: 11, population: 21300 }
+  };
+
+  const predictions = Object.entries(wardBaselines).map(([zoneId, data]) => {
+    const surgeRatio = (data.count - data.baseline) / Math.max(1, data.baseline);
+    const zScore = (data.count - data.baseline) / Math.sqrt(Math.max(1, data.baseline));
+    const outbreakProbability = Math.min(0.98, Math.max(0.05, 1 / (1 + Math.exp(-1.8 * zScore + 1.2))));
+    const riskScore = Math.round(outbreakProbability * 100);
+    const riskLevel = riskScore >= 75 ? 'HIGH' : riskScore >= 45 ? 'ALERT' : 'NORMAL';
+
+    let primarySyndrome = 'Gastrointestinal Febrile';
+    if (zoneId === 'Zone E') primarySyndrome = 'Dengue Vector Anomaly';
+    if (zoneId === 'Zone A') primarySyndrome = 'Seasonal Influenza';
+
+    let recommendation = 'Standard routine surveillance.';
+    if (riskLevel === 'HIGH') {
+      recommendation = 'Deploy ASHA field verification team, inspect water distribution points, distribute ORS kits, and issue community sanitation advisory.';
+    } else if (riskLevel === 'ALERT') {
+      recommendation = 'Increase household health survey sampling frequency and monitor vector breeding sites.';
+    }
+
+    return {
+      zone: zoneId,
+      name: data.name,
+      reportedCount: data.count,
+      baseline: data.baseline,
+      surgePercent: Math.round(surgeRatio * 100),
+      zScore: Number(zScore.toFixed(2)),
+      outbreakProbability: Number(outbreakProbability.toFixed(2)),
+      riskScore,
+      riskLevel,
+      primarySyndrome,
+      recommendation,
+      aiModel: 'Poisson-Weibull Cluster Anomaly Detector (v2.4)'
+    };
+  });
+
+  return predictions;
 }
 
 async function handleAuth(request, response, requestUrl) {
   const googleRedirectUri = configuredGoogleRedirectUri || `http://127.0.0.1:${port}/auth/google/callback`;
+
+  // --------------------------------------------------------------------------
+  // LOCATION API (Country -> State -> District -> Block)
+  // --------------------------------------------------------------------------
+  if (requestUrl.pathname === '/api/locations/states') {
+    return sendJson(response, 200, {
+      country: 'India',
+      countryCode: 'IN',
+      states: locations.getStates()
+    });
+  }
+
+  if (requestUrl.pathname === '/api/locations/districts') {
+    const stateName = requestUrl.searchParams.get('state');
+    if (!stateName) return sendJson(response, 400, { error: 'state query parameter is required.' });
+    return sendJson(response, 200, {
+      state: stateName,
+      districts: locations.getDistricts(stateName)
+    });
+  }
+
+  if (requestUrl.pathname === '/api/locations/blocks') {
+    const stateName = requestUrl.searchParams.get('state');
+    const districtName = requestUrl.searchParams.get('district');
+    if (!stateName || !districtName) return sendJson(response, 400, { error: 'state and district query parameters are required.' });
+    return sendJson(response, 200, {
+      state: stateName,
+      district: districtName,
+      blocks: locations.getBlocks(stateName, districtName)
+    });
+  }
+
+  if (requestUrl.pathname === '/api/locations/villages') {
+    const stateName = requestUrl.searchParams.get('state') || 'Uttar Pradesh';
+    const districtName = requestUrl.searchParams.get('district') || 'Fatehpur';
+    const blockName = requestUrl.searchParams.get('block') || 'Haswa';
+    return sendJson(response, 200, {
+      state: stateName,
+      district: districtName,
+      block: blockName,
+      villages: locations.getVillages(stateName, districtName, blockName)
+    });
+  }
+
+  if (requestUrl.pathname === '/api/locations/towns') {
+    const stateName = requestUrl.searchParams.get('state') || 'Uttar Pradesh';
+    const districtName = requestUrl.searchParams.get('district') || 'Fatehpur';
+    return sendJson(response, 200, {
+      state: stateName,
+      district: districtName,
+      towns: locations.getTowns(stateName, districtName)
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // USER PROFILE UPDATE API
+  // --------------------------------------------------------------------------
+  if ((requestUrl.pathname === '/api/user/profile' || requestUrl.pathname === '/api/profile/location') && request.method === 'POST') {
+    try {
+      const cookieHeader = parseCookies(request).sehat_setu_session;
+      const session = sessions.get(cookieHeader);
+      const data = await readBody(request);
+
+      const targetId = session?.user?.id || data.userId;
+      if (!targetId) return sendJson(response, 401, { error: 'Unauthorized session or missing userId.' });
+
+      // Validate location if provided
+      if (data.state && data.district) {
+        const val = locations.validateLocation(data.state, data.district, data.block);
+        if (!val.valid) return sendJson(response, 400, { error: val.error });
+      }
+
+      const userIndex = users.findIndex(u => u.id === targetId || u.email === data.email);
+      if (userIndex === -1) return sendJson(response, 404, { error: 'User not found.' });
+
+      const targetUser = users[userIndex];
+      const updatedUser = {
+        ...targetUser,
+        ...data,
+        id: targetUser.id,
+        role: targetUser.role
+      };
+
+      users[userIndex] = updatedUser;
+      saveUsers();
+
+      if (db.isSupabaseActive()) {
+        await db.updateUser(targetUser.id, updatedUser);
+      }
+
+      if (session) {
+        session.user = publicUser(updatedUser);
+        saveSessions();
+      }
+
+      return sendJson(response, 200, {
+        success: true,
+        user: publicUser(updatedUser)
+      });
+    } catch (e) {
+      return sendJson(response, 400, { error: e.message });
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // REALTIME SERVER-SENT EVENTS (SSE) & LIVE PUSH BROADCAST
+  // --------------------------------------------------------------------------
+  if (requestUrl.pathname === '/api/events/stream') {
+    response.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*'
+    });
+    response.write('event: connected\ndata: {"status":"connected","timestamp":' + Date.now() + '}\n\n');
+    sseClients.add(response);
+    request.on('close', () => sseClients.delete(response));
+    return true;
+  }
+
+  if (requestUrl.pathname === '/api/events/broadcast' && request.method === 'POST') {
+    try {
+      const data = await readBody(request);
+      broadcastEvent(data.type || 'alert', data.payload || {});
+      return sendJson(response, 200, { broadcasted: true, clientCount: sseClients.size });
+    } catch (e) {
+      return sendJson(response, 400, { error: e.message });
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // CLOUD & LOCAL FILE/PHOTO UPLOAD API
+  // --------------------------------------------------------------------------
+  if (requestUrl.pathname === '/api/upload' && request.method === 'POST') {
+    try {
+      const data = await readBody(request);
+      const { fileName = 'attachment.jpg', fileBase64, mimeType = 'image/jpeg' } = data;
+      if (!fileBase64) return sendJson(response, 400, { error: 'fileBase64 is required.' });
+
+      const buffer = Buffer.from(fileBase64.replace(/^data:[^;]+;base64,/, ''), 'base64');
+      
+      let cloudUrl = null;
+      if (db.isSupabaseActive()) {
+        cloudUrl = await db.uploadFileToStorage(buffer, fileName, mimeType);
+      }
+
+      const localFileName = `${Date.now()}_${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const localFilePath = path.join(uploadsDir, localFileName);
+      fs.writeFileSync(localFilePath, buffer);
+      const localUrl = `/uploads/${localFileName}`;
+
+      return sendJson(response, 200, {
+        success: true,
+        fileName: localFileName,
+        url: cloudUrl || localUrl,
+        storageProvider: cloudUrl ? 'supabase_storage' : 'local_storage'
+      });
+    } catch (e) {
+      return sendJson(response, 400, { error: e.message });
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // AI OUTBREAK CLUSTER PREDICTION ENGINE
+  // --------------------------------------------------------------------------
+  if (requestUrl.pathname === '/api/ai/outbreak-prediction') {
+    const predictions = calculateOutbreakPredictions();
+    return sendJson(response, 200, {
+      success: true,
+      timestamp: new Date().toISOString(),
+      predictions,
+      highestRiskZone: predictions.reduce((prev, curr) => (curr.riskScore > prev.riskScore ? curr : prev), predictions[0])
+    });
+  }
+
+  // Database Health / Status Endpoint
+  if (requestUrl.pathname === '/api/db/status') {
+    return sendJson(response, 200, {
+      database: db.isSupabaseActive() ? 'supabase_postgresql' : 'local_json_fallback',
+      supabaseConnected: db.isSupabaseActive(),
+      usersCount: users.length,
+      realtimeClientsCount: sseClients.size
+    });
+  }
+
   if (requestUrl.pathname === '/auth/google') {
     if (!googleClientId || !googleClientSecret) {
       sendJson(response, 503, { error: 'Google OAuth is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env.' });
@@ -237,6 +540,10 @@ async function handleAuth(request, response, requestUrl) {
           email: googleUser.email,
           phone: '',
           profilePhoto: googleUser.picture || '',
+          country: 'India',
+          state: 'Uttar Pradesh',
+          district: 'Fatehpur',
+          block: 'Teliyani',
           createdAt: new Date().toISOString(),
           ward: 'Zone C',
           familyId: 'FAM-' + Math.floor(10000 + Math.random() * 90000),
@@ -244,13 +551,15 @@ async function handleAuth(request, response, requestUrl) {
         };
         users.push(user);
         saveUsers();
+        if (db.isSupabaseActive()) await db.insertUser(user);
       } else if (!user.providerId) {
         user.providerId = googleUser.sub;
         user.provider = 'google';
         user.profilePhoto = googleUser.picture || user.profilePhoto;
         saveUsers();
+        if (db.isSupabaseActive()) await db.insertUser(user);
       }
-      const [cookie] = createSession(user, oauthState.mode);
+      const [cookie] = await createSession(user, oauthState.mode);
       redirect(response, `/index.html#/${user.role}/dashboard`, [cookie]);
     } catch (error) {
       console.error('Google OAuth error:', error.message);
@@ -260,10 +569,19 @@ async function handleAuth(request, response, requestUrl) {
   }
 
   if (requestUrl.pathname === '/api/auth/session') {
-    const session = sessions.get(parseCookies(request).sehat_setu_session);
+    const cookieHeader = parseCookies(request).sehat_setu_session;
+    let session = sessions.get(cookieHeader);
+
+    if (!session && cookieHeader && db.isSupabaseActive()) {
+      session = await db.getSessionFromDb(cookieHeader);
+      if (session) sessions.set(cookieHeader, session);
+    }
+
     if (session && session.expiresAt <= Date.now()) {
-      sessions.delete(parseCookies(request).sehat_setu_session);
+      sessions.delete(cookieHeader);
       saveSessions();
+      if (db.isSupabaseActive()) await db.deleteSessionFromDb(cookieHeader);
+      session = null;
     }
     sendJson(response, 200, session && session.expiresAt > Date.now() ? { authenticated: true, role: session.role, mode: session.mode, user: session.user } : { authenticated: false });
     return true;
@@ -276,7 +594,16 @@ async function handleAuth(request, response, requestUrl) {
         if (!validRole(data.role) || !data.name || !data.email || !data.password) return sendJson(response, 400, { error: 'Name, email, password, and a valid role are required.' });
         const validAdminInvite = process.env.ADMIN_INVITE_CODE || 'ADMIN2026';
         if (data.role === 'admin' && data.adminInviteCode !== validAdminInvite) return sendJson(response, 403, { error: 'Admin accounts require a valid system invitation code.' });
-        if (users.some(user => user.email.toLowerCase() === data.email.trim().toLowerCase())) return sendJson(response, 409, { error: 'An account with this email already exists.' });
+        
+        const existing = await findUser(data.email);
+        if (existing) return sendJson(response, 409, { error: 'An account with this email already exists.' });
+
+        // Location Validation
+        if (data.state && data.district) {
+          const locVal = locations.validateLocation(data.state, data.district, data.block);
+          if (!locVal.valid) return sendJson(response, 400, { error: locVal.error });
+        }
+        
         const rolePrefix = data.role === 'citizen' ? 'C' : data.role === 'doctor' ? 'DR-' : data.role === 'asha' ? 'ASHA-' : 'ADMIN-';
         const newId = `${rolePrefix}${Math.floor(10000 + Math.random() * 90000)}`;
         const user = {
@@ -285,6 +612,10 @@ async function handleAuth(request, response, requestUrl) {
           name: data.name.trim(),
           email: data.email.trim().toLowerCase(),
           phone: data.mobile || data.phone || '',
+          country: data.country || 'India',
+          state: data.state || 'Uttar Pradesh',
+          district: data.district || 'Fatehpur',
+          block: data.block || 'Teliyani',
           profilePhoto: '',
           passwordHash: await hashPassword(data.password),
           createdAt: new Date().toISOString(),
@@ -292,15 +623,24 @@ async function handleAuth(request, response, requestUrl) {
         };
         delete user.password;
         delete user.adminInviteCode;
+
         users.push(user);
         saveUsers();
-        const [cookie] = createSession(user, 'signup');
+
+        if (db.isSupabaseActive()) {
+          await db.insertUser(user);
+        }
+
+        const [cookie] = await createSession(user, 'signup');
         response.setHeader('Set-Cookie', cookie);
         return sendJson(response, 201, { authenticated: true, role: user.role, mode: 'signup', user: publicUser(user) });
       }
-      const user = findUser(data.email);
-      if (!user || !(await checkPassword(data.password || '', user.passwordHash))) return sendJson(response, 401, { error: 'Invalid email or password.' });
-      const [cookie] = createSession(user, 'login');
+
+      // Login Flow
+      const user = await findUser(data.email);
+      if (!user || !(await checkPassword(data.password || '', user.passwordHash || user.password_hash))) return sendJson(response, 401, { error: 'Invalid email or password.' });
+      
+      const [cookie] = await createSession(user, 'login');
       response.setHeader('Set-Cookie', cookie);
       return sendJson(response, 200, { authenticated: true, role: user.role, mode: 'login', user: publicUser(user) });
     } catch (error) {
@@ -311,11 +651,12 @@ async function handleAuth(request, response, requestUrl) {
   if ((requestUrl.pathname === '/api/auth/otp/request' || requestUrl.pathname === '/api/auth/otp/verify') && request.method === 'POST') {
     try {
       const data = await readBody(request);
-      const user = findUser(data.identifier);
+      const user = await findUser(data.identifier);
       if (!user) return sendJson(response, 404, { error: 'Account not found.' });
       if (requestUrl.pathname === '/api/auth/otp/verify' && data.code !== '741920') return sendJson(response, 401, { error: 'Invalid OTP.' });
       if (requestUrl.pathname === '/api/auth/otp/request') return sendJson(response, 200, { sent: true });
-      const [cookie] = createSession(user, 'otp');
+      
+      const [cookie] = await createSession(user, 'otp');
       response.setHeader('Set-Cookie', cookie);
       return sendJson(response, 200, { authenticated: true, role: user.role, mode: 'otp', user: publicUser(user) });
     } catch (error) {
@@ -324,8 +665,12 @@ async function handleAuth(request, response, requestUrl) {
   }
 
   if (requestUrl.pathname === '/auth/logout') {
-    sessions.delete(parseCookies(request).sehat_setu_session);
+    const cookieHeader = parseCookies(request).sehat_setu_session;
+    sessions.delete(cookieHeader);
     saveSessions();
+    if (cookieHeader && db.isSupabaseActive()) {
+      await db.deleteSessionFromDb(cookieHeader);
+    }
     redirect(response, '/login.html', ['sehat_setu_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0']);
     return true;
   }
@@ -344,7 +689,8 @@ const server = http.createServer(async (request, response) => {
     response.end('Bad request');
     return;
   }
-  const relativePath = requestPath === '/' ? 'login.html' : requestPath.slice(1);
+  // CHANGE 1: Main root URL / serves index.html (the public Overview page)
+  const relativePath = requestPath === '/' ? 'index.html' : requestPath.slice(1);
   const filePath = path.resolve(root, relativePath);
 
   if (!filePath.startsWith(root + path.sep)) {
@@ -379,4 +725,9 @@ server.on('error', error => {
 
 server.listen(port, '127.0.0.1', () => {
   console.log(`Sehat Setu is running at http://127.0.0.1:${port}`);
+  if (db.isSupabaseActive()) {
+    console.log('⚡ Database: Connected to Supabase PostgreSQL');
+  } else {
+    console.log('💾 Database: Running in local JSON mode (Set SUPABASE_URL and SUPABASE_KEY in .env to connect to cloud Supabase)');
+  }
 });
