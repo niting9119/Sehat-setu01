@@ -1,10 +1,36 @@
+# Dependencies
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment and Secrets (Never commit to git)
 .env
 .env.*
 !.env.example
-npm-debug.log*
+hackfest/.env
+hackfest/.env.*
+!hackfest/.env.example
 
-hackfest\users.json
-hackfest/sehat_setu.exe
-
+# Local databases & active sessions
 hackfest/users.json
+hackfest/sessions.json
+hackfest/reports.json
+hackfest/consultations.json
+hackfest/referrals.json
+*.log
+
+# Compiled binaries
+*.exe
+hackfest/sehat_setu.exe
+hackfest/cpp/sehat_setu.exe
+
+# User Uploads
+hackfest/uploads/*
+!hackfest/uploads/.gitkeep
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

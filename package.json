@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "start": "node hackfest/server.js",
+    "test": "node test_suite.js",
     "install:app": "npm --prefix hackfest install"
   },
   "dependencies": {

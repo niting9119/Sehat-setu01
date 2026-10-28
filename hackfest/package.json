@@ -1,0 +1,13 @@
+{
+  "name": "sehat-setu-app",
+  "version": "1.0.0",
+  "description": "Sehat Setu — Smart Community Health Monitoring & Early Warning System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
+    "dotenv": "^17.4.2"
+  }
+}

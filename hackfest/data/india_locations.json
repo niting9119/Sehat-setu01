@@ -9,77 +9,249 @@
         {
           "name": "Fatehpur",
           "code": "UP-FTP",
-          "blocks": ["Airayan", "Asothar", "Bahua", "Bhitaura", "Deomai", "Dhata", "Haswa", "Hathgam", "Khajuha", "Malwan", "Teliyani", "Vijayipur"]
+          "blocks": [
+            "Airayan",
+            "Asothar",
+            "Bahua",
+            "Bhitaura",
+            "Deomai",
+            "Dhata",
+            "Haswa",
+            "Hathgam",
+            "Khajuha",
+            "Malwan",
+            "Teliyani",
+            "Vijayipur"
+          ]
         },
         {
           "name": "Kanpur Nagar",
           "code": "UP-KPN",
-          "blocks": ["Bidhnu", "Bilhaur", "Chaubepur", "Ghatampur", "Kakwan", "Kalyanpur", "Patara", "Sarsaul", "Shivrajpur"]
+          "blocks": [
+            "Bidhnu",
+            "Bilhaur",
+            "Chaubepur",
+            "Ghatampur",
+            "Kakwan",
+            "Kalyanpur",
+            "Patara",
+            "Sarsaul",
+            "Shivrajpur"
+          ]
         },
         {
           "name": "Kanpur Dehat",
           "code": "UP-KPD",
-          "blocks": ["Akbarpur", "Amrutpur", "Derapur", "Jhinjhak", "Maitha", "Malasa", "Rajpur", "Rasulabad", "Rura", "Sarbankhera", "Sandalpur"]
+          "blocks": [
+            "Akbarpur",
+            "Amrutpur",
+            "Derapur",
+            "Jhinjhak",
+            "Maitha",
+            "Malasa",
+            "Rajpur",
+            "Rasulabad",
+            "Rura",
+            "Sarbankhera",
+            "Sandalpur"
+          ]
         },
         {
           "name": "Lucknow",
           "code": "UP-LKO",
-          "blocks": ["Bakshi Ka Talab", "Chinhat", "Gosainganj", "Kakori", "Mal", "Malihabad", "Mohanlalganj", "Sarojini Nagar"]
+          "blocks": [
+            "Bakshi Ka Talab",
+            "Chinhat",
+            "Gosainganj",
+            "Kakori",
+            "Mal",
+            "Malihabad",
+            "Mohanlalganj",
+            "Sarojini Nagar"
+          ]
         },
         {
           "name": "Varanasi",
           "code": "UP-VNS",
-          "blocks": ["Arajiline", "Baragaon", "Chiraigaon", "Cholapur", "Harahua", "Kashi Vidyapeeth", "Pindra", "Sewapuri"]
+          "blocks": [
+            "Arajiline",
+            "Baragaon",
+            "Chiraigaon",
+            "Cholapur",
+            "Harahua",
+            "Kashi Vidyapeeth",
+            "Pindra",
+            "Sewapuri"
+          ]
         },
         {
           "name": "Prayagraj",
           "code": "UP-PRY",
-          "blocks": ["Bahria", "Chaka", "Dhanupur", "Handia", "Holagarh", "Jasra", "Karchhana", "Kaurihar", "Koraon", "Manda", "Mauaima", "Meja", "Pratappur", "Saidabad", "Shankargarh", "Soraon", "Uruwa"]
+          "blocks": [
+            "Bahria",
+            "Chaka",
+            "Dhanupur",
+            "Handia",
+            "Holagarh",
+            "Jasra",
+            "Karchhana",
+            "Kaurihar",
+            "Koraon",
+            "Manda",
+            "Mauaima",
+            "Meja",
+            "Pratappur",
+            "Saidabad",
+            "Shankargarh",
+            "Soraon",
+            "Uruwa"
+          ]
         },
         {
           "name": "Agra",
           "code": "UP-AGR",
-          "blocks": ["Achhnera", "Akola", "Bah", "Barauli Ahir", "Bichpuri", "Fatehabad", "Fatehpur Sikri", "Jagner", "Kheragarh", "Pinahat", "Saiyan", "Shamsabad"]
+          "blocks": [
+            "Achhnera",
+            "Akola",
+            "Bah",
+            "Barauli Ahir",
+            "Bichpuri",
+            "Fatehabad",
+            "Fatehpur Sikri",
+            "Jagner",
+            "Kheragarh",
+            "Pinahat",
+            "Saiyan",
+            "Shamsabad"
+          ]
         },
         {
           "name": "Aligarh",
           "code": "UP-ALG",
-          "blocks": ["Akrabad", "Atrauli", "Bijauli", "Chandaus", "Dhanipur", "Gangiri", "Gonda", "Iglas", "Jawan Sikandarpur", "Khair", "Lodha", "Tappal"]
+          "blocks": [
+            "Akrabad",
+            "Atrauli",
+            "Bijauli",
+            "Chandaus",
+            "Dhanipur",
+            "Gangiri",
+            "Gonda",
+            "Iglas",
+            "Jawan Sikandarpur",
+            "Khair",
+            "Lodha",
+            "Tappal"
+          ]
         },
         {
           "name": "Ayodhya",
           "code": "UP-AYD",
-          "blocks": ["Amaniganj", "Bikapur", "Harrington Ganj", "Masaudha", "Maya Bazar", "Milkipur", "Pura Bazar", "Rudauli", "Sohawal", "Tarun"]
+          "blocks": [
+            "Amaniganj",
+            "Bikapur",
+            "Harrington Ganj",
+            "Masaudha",
+            "Maya Bazar",
+            "Milkipur",
+            "Pura Bazar",
+            "Rudauli",
+            "Sohawal",
+            "Tarun"
+          ]
         },
         {
           "name": "Bareilly",
           "code": "UP-BLY",
-          "blocks": ["Alampur Jafrabad", "Baheri", "Bhadpura", "Bhojipura", "Bithri Chainpur", "Damkhoda", "Faridpur", "Fatehganj Paschim", "Kiyara", "Majhgawan", "Mirganj", "Nawabganj", "Ramnagar", "Richha", "Shergarh"]
+          "blocks": [
+            "Alampur Jafrabad",
+            "Baheri",
+            "Bhadpura",
+            "Bhojipura",
+            "Bithri Chainpur",
+            "Damkhoda",
+            "Faridpur",
+            "Fatehganj Paschim",
+            "Kiyara",
+            "Majhgawan",
+            "Mirganj",
+            "Nawabganj",
+            "Ramnagar",
+            "Richha",
+            "Shergarh"
+          ]
         },
         {
           "name": "Ghaziabad",
           "code": "UP-GZB",
-          "blocks": ["Bhojpur", "Loni", "Muradnagar", "Razapur"]
+          "blocks": [
+            "Bhojpur",
+            "Loni",
+            "Muradnagar",
+            "Razapur"
+          ]
         },
         {
           "name": "Gautam Buddha Nagar (Noida)",
           "code": "UP-GBN",
-          "blocks": ["Bisrakh", "Dankaur", "Jewar"]
+          "blocks": [
+            "Bisrakh",
+            "Dankaur",
+            "Jewar"
+          ]
         },
         {
           "name": "Gorakhpur",
           "code": "UP-GKP",
-          "blocks": ["Badhalganj", "Bansgaon", "Belghat", "Bhathat", "Brahmpur", "Campierganj", "Chargawan", "Gagaha", "Gola", "Jungle Kaudia", "Khorabar", "Kauri Ram", "Pipraich", "Piprauli", "Sahjanwa", "Sardar Nagar", "Uruwa"]
+          "blocks": [
+            "Badhalganj",
+            "Bansgaon",
+            "Belghat",
+            "Bhathat",
+            "Brahmpur",
+            "Campierganj",
+            "Chargawan",
+            "Gagaha",
+            "Gola",
+            "Jungle Kaudia",
+            "Khorabar",
+            "Kauri Ram",
+            "Pipraich",
+            "Piprauli",
+            "Sahjanwa",
+            "Sardar Nagar",
+            "Uruwa"
+          ]
         },
         {
           "name": "Jhansi",
           "code": "UP-JHS",
-          "blocks": ["Babina", "Badagaon", "Bamhori", "Bamaur", "Chirgaon", "Garautha", "Gursarai", "Mauranipur", "Moth"]
+          "blocks": [
+            "Babina",
+            "Badagaon",
+            "Bamhori",
+            "Bamaur",
+            "Chirgaon",
+            "Garautha",
+            "Gursarai",
+            "Mauranipur",
+            "Moth"
+          ]
         },
         {
           "name": "Meerut",
           "code": "UP-MRT",
-          "blocks": ["Daurala", "Hastinapur", "Jani Khurd", "Kharkhoda", "Machhra", "Mawana", "Parikshitgarh", "Rajpura", "Rohta", "Sarurpur Khurd"]
+          "blocks": [
+            "Daurala",
+            "Hastinapur",
+            "Jani Khurd",
+            "Kharkhoda",
+            "Machhra",
+            "Mawana",
+            "Parikshitgarh",
+            "Rajpura",
+            "Rohta",
+            "Sarurpur Khurd"
+          ]
         }
       ]
     },
@@ -90,32 +262,96 @@
         {
           "name": "Mumbai City",
           "code": "MH-MC",
-          "blocks": ["Colaba", "Dadar", "Fort", "Malabar Hill", "Byculla", "Dharavi", "Sion"]
+          "blocks": [
+            "Colaba",
+            "Dadar",
+            "Fort",
+            "Malabar Hill",
+            "Byculla",
+            "Dharavi",
+            "Sion"
+          ]
         },
         {
           "name": "Mumbai Suburban",
           "code": "MH-MS",
-          "blocks": ["Andheri", "Bandra", "Borivali", "Ghatkopar", "Kurla", "Malad"]
+          "blocks": [
+            "Andheri",
+            "Bandra",
+            "Borivali",
+            "Ghatkopar",
+            "Kurla",
+            "Malad"
+          ]
         },
         {
           "name": "Pune",
           "code": "MH-PUN",
-          "blocks": ["Ambegaon", "Baramati", "Bhor", "Daund", "Haveli", "Indapur", "Junnar", "Khed", "Maval", "Mulshi", "Purandar", "Shirur", "Velhe"]
+          "blocks": [
+            "Ambegaon",
+            "Baramati",
+            "Bhor",
+            "Daund",
+            "Haveli",
+            "Indapur",
+            "Junnar",
+            "Khed",
+            "Maval",
+            "Mulshi",
+            "Purandar",
+            "Shirur",
+            "Velhe"
+          ]
         },
         {
           "name": "Nagpur",
           "code": "MH-NGP",
-          "blocks": ["Hingna", "Kamptee", "Katol", "Kuhi", "Mouda", "Nagpur Rural", "Narkhed", "Parseoni", "Ramtek", "Saoner", "Umred"]
+          "blocks": [
+            "Hingna",
+            "Kamptee",
+            "Katol",
+            "Kuhi",
+            "Mouda",
+            "Nagpur Rural",
+            "Narkhed",
+            "Parseoni",
+            "Ramtek",
+            "Saoner",
+            "Umred"
+          ]
         },
         {
           "name": "Thane",
           "code": "MH-THN",
-          "blocks": ["Ambernath", "Bhiwandi", "Kalyan", "Murbad", "Shahapur", "Thane"]
+          "blocks": [
+            "Ambernath",
+            "Bhiwandi",
+            "Kalyan",
+            "Murbad",
+            "Shahapur",
+            "Thane"
+          ]
         },
         {
           "name": "Nashik",
           "code": "MH-NSK",
-          "blocks": ["Baglan", "Chandwad", "Deola", "Dindori", "Igatpuri", "Kalwan", "Malegaon", "Nandgaon", "Nashik", "Niphad", "Peth", "Sinnar", "Surgana", "Trimbakeshwar", "Yevala"]
+          "blocks": [
+            "Baglan",
+            "Chandwad",
+            "Deola",
+            "Dindori",
+            "Igatpuri",
+            "Kalwan",
+            "Malegaon",
+            "Nandgaon",
+            "Nashik",
+            "Niphad",
+            "Peth",
+            "Sinnar",
+            "Surgana",
+            "Trimbakeshwar",
+            "Yevala"
+          ]
         }
       ]
     },
@@ -126,27 +362,50 @@
         {
           "name": "Central Delhi",
           "code": "DL-CD",
-          "blocks": ["Civil Lines", "Karol Bagh", "Kotwali", "Pahar Ganj"]
+          "blocks": [
+            "Civil Lines",
+            "Karol Bagh",
+            "Kotwali",
+            "Pahar Ganj"
+          ]
         },
         {
           "name": "North Delhi",
           "code": "DL-ND",
-          "blocks": ["Alipur", "Model Town", "Narela", "Sadar Bazar"]
+          "blocks": [
+            "Alipur",
+            "Model Town",
+            "Narela",
+            "Sadar Bazar"
+          ]
         },
         {
           "name": "South Delhi",
           "code": "DL-SD",
-          "blocks": ["Hauz Khas", "Mehrauli", "Saket"]
+          "blocks": [
+            "Hauz Khas",
+            "Mehrauli",
+            "Saket"
+          ]
         },
         {
           "name": "East Delhi",
           "code": "DL-ED",
-          "blocks": ["Gandhi Nagar", "Mayur Vihar", "Preet Vihar"]
+          "blocks": [
+            "Gandhi Nagar",
+            "Mayur Vihar",
+            "Preet Vihar"
+          ]
         },
         {
           "name": "New Delhi",
           "code": "DL-NWD",
-          "blocks": ["Chanakyapuri", "Connaught Place", "Delhi Cantonment", "Vasant Vihar"]
+          "blocks": [
+            "Chanakyapuri",
+            "Connaught Place",
+            "Delhi Cantonment",
+            "Vasant Vihar"
+          ]
         }
       ]
     },
@@ -157,17 +416,81 @@
         {
           "name": "Patna",
           "code": "BR-PAT",
-          "blocks": ["Athmalgola", "Bakhtiarpur", "Barh", "Belchhi", "Bihta", "Bikram", "Danapur", "Daniyawan", "Dulhin Bazar", "Fatwah", "Khusrupur", "Maner", "Masaurhi", "Mokama", "Naubatpur", "Paliganj", "Pandarak", "Patna Sadar", "Phulwari Sharif", "Punpun", "Sampatchak"]
+          "blocks": [
+            "Athmalgola",
+            "Bakhtiarpur",
+            "Barh",
+            "Belchhi",
+            "Bihta",
+            "Bikram",
+            "Danapur",
+            "Daniyawan",
+            "Dulhin Bazar",
+            "Fatwah",
+            "Khusrupur",
+            "Maner",
+            "Masaurhi",
+            "Mokama",
+            "Naubatpur",
+            "Paliganj",
+            "Pandarak",
+            "Patna Sadar",
+            "Phulwari Sharif",
+            "Punpun",
+            "Sampatchak"
+          ]
         },
         {
           "name": "Gaya",
           "code": "BR-GAY",
-          "blocks": ["Amas", "Atri", "Bankey Bazar", "Barachatti", "Belaganj", "Bodh Gaya", "Dobhi", "Dumaria", "Fatehpur", "Gaya Town", "Guraru", "Gurua", "Imamganj", "Khizirsarai", "Konch", "Manpur", "Mohanpur", "Muhra", "Neem Chak Bathani", "Paraiya", "Sherghati", "Tan Kuppa", "Tikari", "Wazirganj"]
+          "blocks": [
+            "Amas",
+            "Atri",
+            "Bankey Bazar",
+            "Barachatti",
+            "Belaganj",
+            "Bodh Gaya",
+            "Dobhi",
+            "Dumaria",
+            "Fatehpur",
+            "Gaya Town",
+            "Guraru",
+            "Gurua",
+            "Imamganj",
+            "Khizirsarai",
+            "Konch",
+            "Manpur",
+            "Mohanpur",
+            "Muhra",
+            "Neem Chak Bathani",
+            "Paraiya",
+            "Sherghati",
+            "Tan Kuppa",
+            "Tikari",
+            "Wazirganj"
+          ]
         },
         {
           "name": "Muzaffarpur",
           "code": "BR-MUZ",
-          "blocks": ["Aurai", "Bandra", "Bochahan", "Gaighat", "Kanti", "Katra", "Kudhani", "Marwan", "Minapur", "Motipur", "Muraul", "Mushahari", "Paroo", "Sahebganj", "Sakra", "Saraiya"]
+          "blocks": [
+            "Aurai",
+            "Bandra",
+            "Bochahan",
+            "Gaighat",
+            "Kanti",
+            "Katra",
+            "Kudhani",
+            "Marwan",
+            "Minapur",
+            "Motipur",
+            "Muraul",
+            "Mushahari",
+            "Paroo",
+            "Sahebganj",
+            "Sakra",
+            "Saraiya"
+          ]
         }
       ]
     },
@@ -178,22 +501,44 @@
         {
           "name": "Bhopal",
           "code": "MP-BPL",
-          "blocks": ["Berasia", "Phanda"]
+          "blocks": [
+            "Berasia",
+            "Phanda"
+          ]
         },
         {
           "name": "Indore",
           "code": "MP-IND",
-          "blocks": ["Depalpur", "Indore", "Mhow (Dr. Ambedkar Nagar)", "Sanwer"]
+          "blocks": [
+            "Depalpur",
+            "Indore",
+            "Mhow (Dr. Ambedkar Nagar)",
+            "Sanwer"
+          ]
         },
         {
           "name": "Gwalior",
           "code": "MP-GWL",
-          "blocks": ["Bhitarwar", "Dabra", "Ghatigaon", "Gwalior", "Morar"]
+          "blocks": [
+            "Bhitarwar",
+            "Dabra",
+            "Ghatigaon",
+            "Gwalior",
+            "Morar"
+          ]
         },
         {
           "name": "Jabalpur",
           "code": "MP-JBL",
-          "blocks": ["Jabalpur", "Kundam", "Majholi", "Panagar", "Patan", "Shahpura", "Sihora"]
+          "blocks": [
+            "Jabalpur",
+            "Kundam",
+            "Majholi",
+            "Panagar",
+            "Patan",
+            "Shahpura",
+            "Sihora"
+          ]
         }
       ]
     },
@@ -204,17 +549,53 @@
         {
           "name": "Jaipur",
           "code": "RJ-JAI",
-          "blocks": ["Amber", "Bassi", "Chaksu", "Govindgarh", "Jamwa Ramgarh", "Jhotwara", "Kotputli", "Phagi", "Sambhar", "Sanganer", "Shahpura", "Viratnagar", "Dudu"]
+          "blocks": [
+            "Amber",
+            "Bassi",
+            "Chaksu",
+            "Govindgarh",
+            "Jamwa Ramgarh",
+            "Jhotwara",
+            "Kotputli",
+            "Phagi",
+            "Sambhar",
+            "Sanganer",
+            "Shahpura",
+            "Viratnagar",
+            "Dudu"
+          ]
         },
         {
           "name": "Jodhpur",
           "code": "RJ-JOD",
-          "blocks": ["Baori", "Bhopalgarh", "Bilara", "Luni", "Mandor", "Osian", "Phalodi", "Shergarh"]
+          "blocks": [
+            "Baori",
+            "Bhopalgarh",
+            "Bilara",
+            "Luni",
+            "Mandor",
+            "Osian",
+            "Phalodi",
+            "Shergarh"
+          ]
         },
         {
           "name": "Udaipur",
           "code": "RJ-UDA",
-          "blocks": ["Badgaon", "Bhinder", "Girwa", "Gogunda", "Jhadol", "Kherwara", "Kotra", "Mavli", "Salumber", "Sarada", "Semari", "Vallabhnagar"]
+          "blocks": [
+            "Badgaon",
+            "Bhinder",
+            "Girwa",
+            "Gogunda",
+            "Jhadol",
+            "Kherwara",
+            "Kotra",
+            "Mavli",
+            "Salumber",
+            "Sarada",
+            "Semari",
+            "Vallabhnagar"
+          ]
         }
       ]
     },
@@ -225,17 +606,47 @@
         {
           "name": "Ahmedabad",
           "code": "GJ-AMD",
-          "blocks": ["Barwala", "Bavla", "Daskroi", "Detroj-Rampura", "Dhandhuka", "Dholera", "Dholka", "Mandal", "Sanand", "Viramgam"]
+          "blocks": [
+            "Barwala",
+            "Bavla",
+            "Daskroi",
+            "Detroj-Rampura",
+            "Dhandhuka",
+            "Dholera",
+            "Dholka",
+            "Mandal",
+            "Sanand",
+            "Viramgam"
+          ]
         },
         {
           "name": "Surat",
           "code": "GJ-SRT",
-          "blocks": ["Bardoli", "Choryasi", "Kamrej", "Mahuva", "Mandvi", "Mangrol", "Olpad", "Palsana", "Umarpada"]
+          "blocks": [
+            "Bardoli",
+            "Choryasi",
+            "Kamrej",
+            "Mahuva",
+            "Mandvi",
+            "Mangrol",
+            "Olpad",
+            "Palsana",
+            "Umarpada"
+          ]
         },
         {
           "name": "Vadodara",
           "code": "GJ-VAD",
-          "blocks": ["Dabhoi", "Desar", "Karjan", "Padra", "Savli", "Sinor", "Vadodara", "Vaghodia"]
+          "blocks": [
+            "Dabhoi",
+            "Desar",
+            "Karjan",
+            "Padra",
+            "Savli",
+            "Sinor",
+            "Vadodara",
+            "Vaghodia"
+          ]
         }
       ]
     },
@@ -246,12 +657,25 @@
         {
           "name": "Bengaluru Urban",
           "code": "KA-BLU",
-          "blocks": ["Bengaluru East", "Bengaluru North", "Bengaluru South", "Anekal"]
+          "blocks": [
+            "Bengaluru East",
+            "Bengaluru North",
+            "Bengaluru South",
+            "Anekal"
+          ]
         },
         {
           "name": "Mysuru",
           "code": "KA-MYS",
-          "blocks": ["Heggadadevankote", "Hunsur", "Krishnarajanagara", "Mysuru", "Nanjangud", "Piriyapatna", "Tirumakudalu Narasipura"]
+          "blocks": [
+            "Heggadadevankote",
+            "Hunsur",
+            "Krishnarajanagara",
+            "Mysuru",
+            "Nanjangud",
+            "Piriyapatna",
+            "Tirumakudalu Narasipura"
+          ]
         }
       ]
     },
@@ -262,53 +686,142 @@
         {
           "name": "Chennai",
           "code": "TN-CHE",
-          "blocks": ["Alandur", "Ambattur", "Aminjikarai", "Egmore", "Guindy", "Mambalam", "Mylapore", "Perambur", "Purasawalkam", "Sholinganallur", "Tondiarpet", "Velachery"]
+          "blocks": [
+            "Alandur",
+            "Ambattur",
+            "Aminjikarai",
+            "Egmore",
+            "Guindy",
+            "Mambalam",
+            "Mylapore",
+            "Perambur",
+            "Purasawalkam",
+            "Sholinganallur",
+            "Tondiarpet",
+            "Velachery"
+          ]
         },
         {
           "name": "Coimbatore",
           "code": "TN-CBE",
-          "blocks": ["Anaimalai", "Annur", "Karamadai", "Kinathukadavu", "Madukkarai", "Periyanayakkanpalayam", "Pollachi North", "Pollachi South", "Sarkar Samakulam", "Sulur", "Sultanpet", "Thondamuthur"]
+          "blocks": [
+            "Anaimalai",
+            "Annur",
+            "Karamadai",
+            "Kinathukadavu",
+            "Madukkarai",
+            "Periyanayakkanpalayam",
+            "Pollachi North",
+            "Pollachi South",
+            "Sarkar Samakulam",
+            "Sulur",
+            "Sultanpet",
+            "Thondamuthur"
+          ]
         }
       ]
     }
   ],
   "villagesByBlock": {
     "Uttar Pradesh_Fatehpur_Haswa": [
-      "Haswa (Gram Panchayat)",
-      "Bilinda",
-      "Chak Kazi",
+      "Achintpur Pitai",
+      "Akari",
+      "Akbarpur",
+      "Andmau",
+      "Aoreai",
+      "Arabpur",
+      "Ashikpur Aoreya",
+      "Aswa Baxpur",
+      "Atraha",
+      "Babarpur",
+      "Bahrampur",
+      "Baranpur",
+      "Baroun",
+      "Barsara",
+      "Bhairwa",
+      "Bhojpur",
+      "Bilandpur",
+      "Bilari Maw",
+      "Budhramaw",
+      "Chak Badruddin",
+      "Chak Bheekh",
+      "Chak Gulam Husain",
+      "Chak Jainuddin Ahmad",
+      "Chak Korra Sadat",
+      "Chak Makai",
+      "Chak Nathanpur",
+      "Chak Nuh",
+      "Chak Rasulabad",
+      "Chak Shah Jahid",
+      "Chak Teksari",
+      "Chhichhni",
+      "Chhitampur",
+      "Dalpatpur",
+      "Daniyalpur",
+      "Dharmpur Sato",
+      "Emadpur",
+      "Etraura",
+      "Faijullapur",
+      "Faridpur",
+      "Faridpur Usraina",
+      "Fatehpur Matiya",
+      "Genduri",
+      "Ghanghaol",
+      "Ghuri Bujurg",
+      "Hajipur Maychak",
+      "Hasimpur Bhedpur",
+      "Haswa",
+      "Jaitpur Unha",
+      "Jamalpur",
+      "Kariyamau",
+      "Kharsola",
+      "Khawajipur Semraiya",
+      "Kheshan",
+      "Khumaripur",
+      "Kusumbhi",
+      "Lotha",
+      "Manawa",
+      "Mani Khera",
+      "Manlaw",
+      "Meerpur",
+      "Michkimay Rahimapur",
+      "Misa",
+      "Murawan",
+      "Musaidpur",
+      "Mustfapur",
+      "Naraini",
+      "Prayagdaspur",
+      "Premrajpur",
+      "Purbujurg",
+      "Pure Jameel",
+      "Pyarepur",
       "Rampur",
-      "Khunta",
-      "Jairampur",
-      "Sonbarsa",
-      "Bahadurpur",
-      "Baragaon",
-      "Malawan",
-      "Shahpur",
-      "Asarafpur",
-      "Binda",
-      "Chhichhani",
-      "Dadwa",
-      "Jamrawan",
-      "Kalyanpur",
-      "Keshopur",
-      "Khushalpur",
-      "Mohiuddinpur",
-      "Narauli",
-      "Rasulpur",
-      "Sarai Khwaja",
-      "Sultanpur",
-      "Tikra",
-      "Alwalpur",
-      "Bakhriya",
-      "Damapur",
-      "Deori",
-      "Hardaspur",
-      "Jalalpur",
-      "Kanja",
-      "Mahuapur",
-      "Rahmatpur",
-      "Saidpur"
+      "Rampur Thariyanw",
+      "Ramwa Panthuwa",
+      "Rasulpur Mamaiya",
+      "Rasulpur Urf Vaisapur",
+      "Rithwa",
+      "Sahabuddinpur",
+      "Sakhiyanwa",
+      "Sangaw",
+      "Saray Abhaiya",
+      "Sarayan Manda",
+      "Saray Mohan Salempur",
+      "Sarki",
+      "Sato Joga",
+      "Sato Peet",
+      "Sato Sultanpur",
+      "Semra",
+      "Semrimay Khairaha Kalrvapur",
+      "Shahipur",
+      "Sonhi",
+      "Sudamapur",
+      "Sukuai",
+      "Tee. See.",
+      "Teksari Bujurg",
+      "Teksari Khurd",
+      "Tikar",
+      "Vira Budhanpur"
     ],
     "Uttar Pradesh_Fatehpur_Teliyani": [
       "Teliyani (Gram Panchayat)",

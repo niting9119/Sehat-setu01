@@ -372,21 +372,15 @@
         <div id="otp-section" style="display: none; margin-top: 0.75rem;">
           <label class="form-label" for="otp-1">
             <span>Enter 6-Digit OTP *</span>
-            <span style="font-size: 0.75rem; color: var(--accent-emerald);">Code sent (741920)</span>
+            <span id="otp-hint-badge" style="font-size: 0.75rem; color: var(--accent-emerald);"></span>
           </label>
           <div class="otp-input-group">
-            <input id="otp-1" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" value="7"
-              required>
-            <input id="otp-2" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" value="4"
-              required>
-            <input id="otp-3" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" value="1"
-              required>
-            <input id="otp-4" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" value="9"
-              required>
-            <input id="otp-5" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" value="2"
-              required>
-            <input id="otp-6" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" value="0"
-              required>
+            <input id="otp-1" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" required autofocus>
+            <input id="otp-2" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" required>
+            <input id="otp-3" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" required>
+            <input id="otp-4" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" required>
+            <input id="otp-5" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" required>
+            <input id="otp-6" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" required>
           </div>
 
           <button type="submit" class="btn btn-primary btn-block" style="padding: 0.75rem; margin-top: 0.65rem;">
@@ -397,6 +391,14 @@
 
       <div style="text-align: center; margin-top: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
         Don't have an account? <a href="signup.html" style="font-weight: 700; color: var(--primary-600);">Sign Up</a>
+      </div>
+
+      <!-- Statutory Medical Disclaimer -->
+      <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; padding: 0.65rem 0.85rem; margin-top: 1.25rem; display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.725rem; color: var(--text-muted); line-height: 1.45;">
+        <span style="font-size: 1rem; flex-shrink: 0; line-height: 1;">⚠️</span>
+        <div>
+          <strong style="color: var(--text-main);">Statutory Disclaimer:</strong> Sehat Setu is an epidemiological decision-support & surveillance prototype, not a certified clinical diagnostic tool. In medical emergencies, consult a certified physician or dial 108.
+        </div>
       </div>
     </div>
   </main>
@@ -468,12 +470,37 @@
       const identifier = document.getElementById('otp-mobile-input').value.trim();
       fetch('/api/auth/otp/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier }) })
         .then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.error); return data; })
-        .then(() => {
+        .then((data) => {
           document.getElementById('otp-section').style.display = 'block';
-          window.SehatUI.showToast('OTP Dispatched', 'Simulated 6-digit OTP code: 741920', 'success');
+          const codeMsg = data.devCode ? `Verification Code: ${data.devCode}` : '6-digit OTP code dispatched.';
+          window.SehatUI.showToast('OTP Dispatched', codeMsg, 'success');
+
+          if (data.devCode) {
+            const hint = document.getElementById('otp-hint-badge');
+            if (hint) hint.textContent = `Demo OTP: ${data.devCode}`;
+            const digits = data.devCode.split('');
+            digits.forEach((d, i) => {
+              const el = document.getElementById(`otp-${i + 1}`);
+              if (el) el.value = d;
+            });
+          }
         })
-        .catch(error => window.SehatUI.showToast('Account Not Found', error.message, 'warning'));
+        .catch(error => window.SehatUI.showToast('Account Notice', error.message, 'warning'));
     }
+
+    // Auto-advance OTP cursor on mobile and desktop
+    document.querySelectorAll('.otp-box').forEach((input, index, all) => {
+      input.addEventListener('input', () => {
+        if (input.value && index < all.length - 1) {
+          all[index + 1].focus();
+        }
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !input.value && index > 0) {
+          all[index - 1].focus();
+        }
+      });
+    });
 
     function loginWithGoogleOAuth() {
       window.location.href = `/auth/google?mode=login&role=${encodeURIComponent(activeRole)}`;

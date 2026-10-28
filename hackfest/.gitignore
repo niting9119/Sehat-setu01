@@ -1,3 +1,6 @@
 .env
 sessions.json
+reports.json
+consultations.json
+referrals.json
 *.log

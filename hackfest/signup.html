@@ -217,8 +217,7 @@
           </div>
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" for="reg-mobile">Mobile Number *</label>
-            <input type="tel" id="reg-mobile" class="form-control" placeholder="+91 98765 00000" value="+91 98765 11223"
-              required>
+            <input type="tel" id="reg-mobile" class="form-control" placeholder="+91 98765 00000" value="+91 98765 11223" pattern="[0-9+ -]{10,16}" title="10-digit mobile number" required>
           </div>
         </div>
 
@@ -365,6 +364,14 @@
       <div style="text-align: center; margin-top: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
         Already have an account? <a href="login.html" style="font-weight: 700; color: var(--primary-600);">Log In</a>
       </div>
+
+      <!-- Statutory Medical Disclaimer -->
+      <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; padding: 0.65rem 0.85rem; margin-top: 1.25rem; display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.725rem; color: var(--text-muted); line-height: 1.45;">
+        <span style="font-size: 1rem; flex-shrink: 0; line-height: 1;">⚠️</span>
+        <div>
+          <strong style="color: var(--text-main);">Statutory Disclaimer:</strong> Sehat Setu is an epidemiological decision-support & surveillance prototype, not a certified clinical diagnostic tool. In medical emergencies, consult a certified physician or dial 108.
+        </div>
+      </div>
     </div>
   </main>
 
@@ -485,10 +492,23 @@
 
     document.getElementById('signup-form').addEventListener('submit', (e) => {
       e.preventDefault();
-      const name = document.getElementById('reg-name').value;
-      const email = document.getElementById('reg-email').value;
-      const mobile = document.getElementById('reg-mobile').value;
+      const name = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+      const mobile = document.getElementById('reg-mobile').value.trim();
       const pass = document.getElementById('reg-pass').value;
+
+      // Validation 1: Indian Mobile format
+      const digitsOnly = mobile.replace(/[^0-9]/g, '');
+      if (digitsOnly.length > 0 && (digitsOnly.length < 10 || !/^[6-9]\d{9}$/.test(digitsOnly.slice(-10)))) {
+        window.SehatUI.showToast('Invalid Mobile Number', 'Please enter a valid 10-digit Indian mobile number (e.g. 9876543210).', 'warning');
+        return;
+      }
+
+      // Validation 2: Password minimum length
+      if (!pass || pass.length < 6) {
+        window.SehatUI.showToast('Password Too Short', 'Password must be at least 6 characters long.', 'warning');
+        return;
+      }
 
       const areaTypeVal = document.getElementById('reg-area-type')?.value || 'village';
       const selectVal = document.getElementById('reg-village-town-select')?.value || '';

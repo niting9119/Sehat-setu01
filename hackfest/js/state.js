@@ -1,5 +1,39 @@
 /**
- * Sehat Setu — Centralized Reactive State Store with Auth & Profile Management
+ * ============================================================================
+ * SEHAT SETU — Centralized Reactive State Store (Data Layer)
+ * ============================================================================
+ * 
+ * TABLE OF CONTENTS:
+ *  1. INITIAL_STATE Definition (Lines 35 - 850)
+ *      - Line ~20:   userAccounts (Registered login users)
+ *      - Line ~160:  users (Default profiles for Citizen, Doctor, ASHA, Admin)
+ *      - Line ~197:  family (FAM-10284 members & household clustering signals)
+ *      - Line ~250:  citizenTimeline (Health events & doctor visits)
+ *      - Line ~290:  medicalRecords (Diagnostic reports, blood tests, Rx)
+ *      - Line ~327:  doctorPatients (Surveillance intake queue)
+ *      - Line ~387:  consultations (Full clinical consultations & vitals)
+ *      - Line ~519:  doctorPerformance (Rating 4.8/5.0, success metrics)
+ *      - Line ~562:  ashaTasks (Household follow-ups & visits)
+ *      - Line ~596:  zones (Surveillance Zones A through E with risk scores)
+ *      - Line ~673:  earlyWarnings (Syndromic early warning alerts)
+ *      - Line ~709:  environmental (Water quality, rain, vector breeding)
+ *      - Line ~717:  kpis (Overall platform statistics)
+ *      - Line ~727:  referrals (Patient referral pipeline)
+ *      - Line ~776:  notifications (In-app notification messages)
+ * 
+ *  2. StateStore Class (Lines 855+)
+ *      - loadState() / saveState(): LocalStorage synchronization
+ *      - subscribe() / notify(): Pub/Sub reactive listeners & SSE broadcast
+ *      - login() / signup(): Authentication actions
+ *      - submitHealthReport(): Citizen reporting action
+ *      - recordDoctorConsultation(): Doctor clinical assessment action
+ *      - recordAshaVerification(): ASHA field verification action
+ * 
+ * HOW TO MODIFY DATA:
+ *  - To change default patients: edit `doctorPatients` or `userAccounts` below.
+ *  - To change surveillance risk scores: edit `zones` object.
+ *  - To reset data in browser: open DevTools Console -> type `window.SehatState.resetState()`
+ * ============================================================================
  */
 
 const STORAGE_KEY = 'SEHAT_SETU_STATE_V2';
@@ -1504,6 +1538,15 @@ class StateStore {
       read: false
     });
 
+    // Realtime Server & Cloud Database Sync
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reportData)
+      }).catch(err => console.warn('Report server sync notice:', err.message));
+    }
+
     this.notify('HEALTH_REPORT_SUBMITTED', { reportData, timelineItem: newTlItem });
   }
 
@@ -1552,6 +1595,15 @@ class StateStore {
       time: 'Just now',
       read: false
     });
+
+    // Realtime Server & Cloud Database Sync
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/consultations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ citizenId: patientId, ...consultationData })
+      }).catch(err => console.warn('Consultation server sync notice:', err.message));
+    }
 
     this.notify('DOCTOR_CONSULTATION_RECORDED', { patientId, consultationData });
   }
@@ -2094,6 +2146,15 @@ class StateStore {
       time: 'Just now',
       read: false
     });
+
+    // Realtime Server & Cloud Database Sync
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/referrals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newReferral)
+      }).catch(err => console.warn('Referral server sync notice:', err.message));
+    }
 
     this.notify('DOCTOR_REFERRAL_CREATED', { referral: newReferral });
     return newReferral;

@@ -2,7 +2,9 @@
    Sehat Setu — Base Layout & Global Navigation Styles
    ========================================================================== */
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -27,7 +29,12 @@ body {
 }
 
 /* Headings */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-display);
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -35,12 +42,29 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.25;
 }
 
-h1 { font-size: 2.35rem; }
-h2 { font-size: 1.85rem; }
-h3 { font-size: 1.4rem; }
-h4 { font-size: 1.15rem; }
-h5 { font-size: 0.95rem; }
-h6 { font-size: 0.85rem; }
+h1 {
+  font-size: 2.35rem;
+}
+
+h2 {
+  font-size: 1.85rem;
+}
+
+h3 {
+  font-size: 1.4rem;
+}
+
+h4 {
+  font-size: 1.15rem;
+}
+
+h5 {
+  font-size: 0.95rem;
+}
+
+h6 {
+  font-size: 0.85rem;
+}
 
 p {
   color: var(--text-muted);
@@ -65,7 +89,9 @@ button {
   background: none;
 }
 
-input, select, textarea {
+input,
+select,
+textarea {
   font-family: inherit;
   font-size: 0.95rem;
   color: var(--text-main);
@@ -101,7 +127,7 @@ input, select, textarea {
   z-index: 1000;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(234, 70, 70, 0.05);
 }
 
 .demo-stepper-label {
@@ -320,16 +346,16 @@ input, select, textarea {
   .role-pill-nav {
     display: none;
   }
-  
+
   .footer-grid {
     grid-template-columns: 1fr;
     gap: 1.5rem;
   }
-  
+
   .demo-stepper-bar {
     top: 0;
   }
-  
+
   .app-header {
     top: 45px;
   }

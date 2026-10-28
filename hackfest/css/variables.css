@@ -1,5 +1,15 @@
 /* ==========================================================================
-   Sehat Setu — Multi-Color Healthcare Palette & Design System Variables
+   SEHAT SETU — Design System Variables & Theme Configuration
+   ==========================================================================
+   HOW TO CUSTOMIZE APPEARANCE:
+    - Primary Teal Palette: Change --primary-600 (main brand color)
+    - Role Colors:
+        Citizen Portal: --role-citizen (#10b981 - Emerald)
+        Doctor Portal:  --role-doctor  (#3b82f6 - Blue)
+        ASHA Portal:    --role-asha    (#a855f7 - Purple)
+        Admin Portal:   --role-admin   (#ef4444 - Crimson/Red)
+    - Backgrounds: Change --bg-app and --bg-surface
+    - Typography: Change --font-sans, --font-display, --font-mono
    ========================================================================== */
 
 :root {
@@ -64,7 +74,7 @@
   --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, Monaco, monospace;
 
   /* Light Theme */
-  --bg-app: #f8fafc;
+  --bg-app: #e5f1e7ed;
   --bg-surface: #ffffff;
   --bg-surface-elevated: #ffffff;
   --bg-surface-subtle: #f1f5f9;

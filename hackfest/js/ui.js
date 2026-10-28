@@ -4,7 +4,19 @@
  */
 
 window.SehatUI = {
-  // Toast Notification System
+  // Security: XSS Sanitization helper
+  escapeHTML(str) {
+    if (typeof str !== 'string') return str === null || str === undefined ? '' : String(str);
+    return str.replace(/[&<>'"]/g, tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[tag] || tag));
+  },
+
+  // Toast Notification System (XSS-safe)
   showToast(title, message, type = 'info', duration = 4000) {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -20,8 +32,8 @@ window.SehatUI = {
     toast.innerHTML = `
       <div class="toast-icon">${icon}</div>
       <div class="toast-content" style="flex: 1;">
-        <h5>${title}</h5>
-        <p>${message}</p>
+        <h5>${this.escapeHTML(title)}</h5>
+        <p>${this.escapeHTML(message)}</p>
       </div>
       <button style="color: var(--text-muted); font-size: 1.1rem; line-height: 1;" onclick="this.parentElement.remove()">✕</button>
     `;

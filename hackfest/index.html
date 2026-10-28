@@ -221,18 +221,35 @@
     </div>
   </div>
 
-  <!-- Leaflet Map JS -->
+  <!-- ==================================================================== -->
+  <!-- SCRIPT LIBRARIES & APPLICATION MODULES (Load Order Is Important)       -->
+  <!-- ==================================================================== -->
+  <!-- 1. Leaflet Geospatial Map Library -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-  <!-- Application Modules -->
+  <!-- 2. Core Reactive State Store & Mock Data (Must load first) -->
   <script src="js/state.js"></script>
+
+  <!-- 3. Indian Administrative Location Manager (LGD State/District/Block hierarchy) -->
   <script src="js/locations.js"></script>
+
+  <!-- 4. SVG & HTML5 Canvas Surveillance Charting -->
   <script src="js/charts.js"></script>
+
+  <!-- 5. Real Google Maps & Outbreak Cluster Overlays -->
   <script src="js/map.js"></script>
+
+  <!-- 6. UI Toast Notifications & Modal Dialogs -->
   <script src="js/ui.js"></script>
+
+  <!-- 7. Hackathon 20-Step Demo Stepper Bar -->
   <script src="js/demo-flow.js"></script>
+
+  <!-- 8. Client-Side Hash Router (SPA URL navigation) -->
   <script src="js/router.js"></script>
+
+  <!-- 9. Auth Session Hydration from Server Cookie -->
   <script>
     window.SehatAuthReady = fetch('/api/auth/session', { credentials: 'same-origin' })
       .then(response => response.json())
@@ -255,6 +272,8 @@
         window.location.replace('login.html?authError=session_required');
       });
   </script>
+
+  <!-- 10. Core App UI Renderers & Event Handlers (Must load after state and router) -->
   <script src="js/app.js"></script>
   <script>window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);</script>
 </body>

@@ -258,48 +258,119 @@ async function uploadFileToStorage(fileBuffer, fileName, mimeType = 'image/jpeg'
 // ----------------------------------------------------------------------------
 // HEALTH REPORTS & REFERRALS CLOUD SYNC
 // ----------------------------------------------------------------------------
+async function getAllHealthReports() {
+  if (!isSupabaseActive()) return null;
+  try {
+    const { data, error } = await supabase.from('health_reports').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error('Supabase getAllHealthReports notice:', err.message);
+    return null;
+  }
+}
+
 async function insertHealthReportToDb(report) {
   if (!isSupabaseActive()) return false;
   try {
     const { error } = await supabase.from('health_reports').upsert({
       id: report.id,
       citizen_id: report.citizenId,
-      zone: report.zone,
-      symptoms: report.symptoms,
-      severity: report.severity,
-      description: report.description,
-      status: report.status || 'Under Surveillance',
+      citizen_name: report.citizenName || null,
+      zone: report.zone || 'Zone C',
+      symptoms: report.symptoms || [],
+      severity: report.severity || 'Moderate',
+      description: report.description || report.notes || '',
+      photos: report.photos || [],
+      date: report.date || new Date().toISOString(),
       created_at: new Date().toISOString()
     });
     if (error) throw error;
     return true;
   } catch (err) {
-    console.error('Supabase insertHealthReport error:', err.message);
+    console.error('Supabase insertHealthReport notice:', err.message);
     return false;
+  }
+}
+
+async function getAllConsultations() {
+  if (!isSupabaseActive()) return null;
+  try {
+    const { data, error } = await supabase.from('consultations').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error('Supabase getAllConsultations notice:', err.message);
+    return null;
+  }
+}
+
+async function insertConsultationToDb(consultation) {
+  if (!isSupabaseActive()) return false;
+  try {
+    const { error } = await supabase.from('consultations').upsert({
+      id: consultation.id,
+      citizen_id: consultation.citizenId,
+      citizen_name: consultation.citizenName || null,
+      doctor_id: consultation.doctorId || null,
+      doctor_name: consultation.doctorName || null,
+      chief_complaint: consultation.chiefComplaint || 'Clinical Consultation',
+      symptoms: consultation.symptoms || [],
+      vitals: consultation.vitals || {},
+      observations: consultation.clinicalNotes || consultation.observations || '',
+      analysis: consultation.advice || consultation.analysis || '',
+      medicines: consultation.medicines || [],
+      attachments: consultation.attachments || { photos: [], pdfs: [], videos: [] },
+      follow_up_date: consultation.followUpDate || '',
+      outcome: consultation.outcome || 'Under Treatment',
+      date: consultation.date || new Date().toISOString(),
+      created_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error('Supabase insertConsultation notice:', err.message);
+    return false;
+  }
+}
+
+async function getAllReferrals() {
+  if (!isSupabaseActive()) return null;
+  try {
+    const { data, error } = await supabase.from('referrals').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error('Supabase getAllReferrals notice:', err.message);
+    return null;
   }
 }
 
 async function insertReferralToDb(referral) {
   if (!isSupabaseActive()) return false;
   try {
+    const combinedNotes = referral.facility 
+      ? `Facility: ${referral.facility}. ${referral.notes || ''}`.trim()
+      : (referral.notes || '');
+
     const { error } = await supabase.from('referrals').upsert({
       id: referral.id,
       citizen_id: referral.citizenId,
       citizen_name: referral.citizenName,
-      doctor_id: referral.doctorId,
-      doctor_name: referral.doctorName,
+      doctor_id: referral.doctorId || null,
+      doctor_name: referral.doctorName || null,
       asha_id: referral.ashaId || 'ASHA-204',
-      facility: referral.facility,
-      urgency: referral.urgency,
-      reason: referral.reason,
-      notes: referral.notes,
+      urgency: referral.urgency || 'Medium',
+      reason: referral.reason || 'Specialist Evaluation',
+      notes: combinedNotes,
       status: referral.status || 'Pending Review',
-      scheduled_date: referral.date
+      date: referral.date || new Date().toISOString(),
+      created_at: new Date().toISOString()
     });
     if (error) throw error;
     return true;
   } catch (err) {
-    console.error('Supabase insertReferral error:', err.message);
+    console.error('Supabase insertReferral notice:', err.message);
     return false;
   }
 }
@@ -315,6 +386,10 @@ module.exports = {
   getSessionFromDb,
   deleteSessionFromDb,
   uploadFileToStorage,
+  getAllHealthReports,
   insertHealthReportToDb,
+  getAllConsultations,
+  insertConsultationToDb,
+  getAllReferrals,
   insertReferralToDb
 };

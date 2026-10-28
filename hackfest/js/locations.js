@@ -1,6 +1,21 @@
 /**
- * Sehat Setu — Indian Administrative Location Manager (LGD Standard)
+ * ============================================================================
+ * SEHAT SETU — Indian Administrative Location Manager (LGD Standard)
+ * ============================================================================
+ * 
  * Hierarchy: Country (India) -> State -> District -> Block -> Village / Town / Ward
+ * Compatible with both Node.js (backend) and browser window (frontend).
+ * 
+ * MAIN METHODS:
+ *  - getStates(): returns array of Indian states/UTs
+ *  - getDistricts(state): returns districts for a state
+ *  - getBlocks(state, district): returns blocks for a district
+ *  - getVillages(state, district, block): returns villages for a block
+ *  - getTowns(state, district): returns urban municipal wards/towns
+ *  - validateLocation(state, district, block): checks validity
+ *  - bindLocationDropdowns({stateSelectId, districtSelectId, blockSelectId}):
+ *      automatically sets up cascading dependent dropdowns in any HTML form.
+ * ============================================================================
  */
 
 (function (global) {

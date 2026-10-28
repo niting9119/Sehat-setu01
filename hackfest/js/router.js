@@ -1,6 +1,25 @@
 /**
- * Sehat Setu — Client-Side Hash Router with Connected Multi-Portal Protection
- * Supports direct deep linking, dynamic URL params (:citizenId, :id), and unified state synchronization.
+ * ============================================================================
+ * SEHAT SETU — Client-Side Hash Router (SPA Navigator)
+ * ============================================================================
+ * 
+ * HOW ROUTING WORKS:
+ * 1. The browser URL uses hash fragments, e.g.:
+ *    - http://127.0.0.1:3000/#/citizen/dashboard
+ *    - http://127.0.0.1:3000/#/doctor/patients/C10291
+ *    - http://127.0.0.1:3000/#/asha/follow-ups
+ *    - http://127.0.0.1:3000/#/admin/dashboard
+ * 2. On hashchange or load, handleRouting() extracts the route and parameters.
+ * 3. Role enforcement checks if the authenticated user has access.
+ * 4. State is updated (currentRole, currentTab, subView, params) and
+ *    'ROUTE_CHANGED' is broadcast to re-render the view in app.js.
+ * 
+ * HOW TO ADD A NEW ROUTE:
+ *  - Go to matchRoute(path) below.
+ *  - Add an if statement matching your route, e.g.:
+ *      if (normalized === '/citizen/my-new-feature') return { role: 'citizen', tab: 'new_feature', params: {} };
+ *  - In js/app.js, handle the new tab in renderCitizenTabContent().
+ * ============================================================================
  */
 
 class SehatRouter {
@@ -8,14 +27,22 @@ class SehatRouter {
     this.currentRoute = '';
     this.currentParams = {};
 
+    // Listen to hash changes in browser address bar
     window.addEventListener('hashchange', () => this.handleRouting());
     window.addEventListener('load', () => this.handleRouting());
   }
 
+  /**
+   * Programmatically navigate to any hash route
+   * @param {string} path - e.g. '/citizen/dashboard' or '#/doctor/patients'
+   */
   navigate(path) {
     window.location.hash = path.startsWith('#') ? path : '#' + path;
   }
 
+  /**
+   * Evaluates the current URL hash, checks permissions, and notifies the app
+   */
   handleRouting() {
     const rawHash = window.location.hash.slice(1) || '/landing';
     const [pathPart] = rawHash.split('?');
