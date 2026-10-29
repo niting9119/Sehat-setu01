@@ -45,7 +45,7 @@ class SehatRouter {
    */
   handleRouting() {
     const rawHash = window.location.hash.slice(1) || '/landing';
-    const [pathPart] = rawHash.split('?');
+    const [pathPart, queryPart] = rawHash.split('?');
     const path = pathPart.startsWith('/') ? pathPart : '/' + pathPart;
 
     const state = window.SehatState.getState();
@@ -98,7 +98,14 @@ class SehatRouter {
     }
 
     this.currentRoute = path;
-    this.currentParams = params || {};
+    const mergedParams = { ...(params || {}) };
+    if (queryPart) {
+      const searchParams = new URLSearchParams(queryPart);
+      for (const [key, val] of searchParams.entries()) {
+        mergedParams[key] = val;
+      }
+    }
+    this.currentParams = mergedParams;
 
     // 3. Synchronize State Store (Role, Tab and SubView)
     window.SehatState.state.currentRole = role;

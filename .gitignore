@@ -18,6 +18,8 @@ hackfest/sessions.json
 hackfest/reports.json
 hackfest/consultations.json
 hackfest/referrals.json
+hackfest/asha_tasks.json
+hackfest/household_visits.json
 *.log
 
 # Compiled binaries

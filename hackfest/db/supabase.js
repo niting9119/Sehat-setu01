@@ -375,6 +375,70 @@ async function insertReferralToDb(referral) {
   }
 }
 
+async function getAllAshaTasks() {
+  if (!isSupabaseActive()) return null;
+  try {
+    const { data, error } = await supabase
+      .from('asha_tasks')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(t => ({
+      id: t.id,
+      ashaId: t.asha_id,
+      familyId: t.family_id,
+      headName: t.head_name,
+      address: t.address,
+      reason: t.reason,
+      priority: t.priority,
+      date: t.date,
+      status: t.status,
+      createdAt: t.created_at
+    }));
+  } catch (err) {
+    console.warn('Supabase getAllAshaTasks notice:', err.message);
+    return null;
+  }
+}
+
+async function upsertAshaTask(task) {
+  if (!isSupabaseActive()) return false;
+  try {
+    const { error } = await supabase.from('asha_tasks').upsert({
+      id: task.id,
+      asha_id: task.ashaId || 'ASHA-204',
+      family_id: task.familyId || 'FAM-10284',
+      head_name: task.headName || 'Household Head',
+      address: task.address || 'Zone C',
+      reason: task.reason || 'Household follow-up',
+      priority: task.priority || 'Normal',
+      date: task.date || 'Today',
+      status: task.status || 'Scheduled',
+      created_at: task.createdAt || new Date().toISOString()
+    });
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error('Supabase upsertAshaTask notice:', err.message);
+    return false;
+  }
+}
+
+async function updateAshaTaskStatus(taskId, status) {
+  if (!isSupabaseActive()) return false;
+  try {
+    const { error } = await supabase
+      .from('asha_tasks')
+      .update({ status: status || 'Completed' })
+      .eq('id', taskId);
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error('Supabase updateAshaTaskStatus notice:', err.message);
+    return false;
+  }
+}
+
 module.exports = {
   initSupabase,
   isSupabaseActive,
@@ -391,5 +455,8 @@ module.exports = {
   getAllConsultations,
   insertConsultationToDb,
   getAllReferrals,
-  insertReferralToDb
+  insertReferralToDb,
+  getAllAshaTasks,
+  upsertAshaTask,
+  updateAshaTaskStatus
 };

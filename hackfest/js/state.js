@@ -1906,36 +1906,63 @@ class StateStore {
     });
 
     this.notify('ASHA_VERIFICATION_COMPLETED', { zoneId, verificationData });
+
+    // Sync with Backend /api/asha/verify
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/asha/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zoneId, ...verificationData })
+      }).catch(err => console.warn('Field verification sync notice:', err.message));
+    }
   }
 
   // --- ASHA FIELD WORK & HOUSEHOLD VISITS ---
-  completeAshaTask(taskId, findings = 'Routine household survey conducted. Hydration & vitals reviewed.') {
+  async completeAshaTask(taskId, findings = 'Routine household survey conducted. Hydration & vitals reviewed.') {
     if (!this.state.ashaTasks) this.state.ashaTasks = [];
     const task = this.state.ashaTasks.find(t => t.id === taskId);
-    if (task) {
-      task.status = 'Completed';
-      task.completedAt = 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      task.findings = findings;
+    if (!task) return false;
 
-      if (this.state.users.asha && this.state.users.asha.pendingFollowupsCount > 0) {
-        this.state.users.asha.pendingFollowupsCount -= 1;
+    // Backend Persistence & Validation
+    if (typeof fetch !== 'undefined') {
+      try {
+        const response = await fetch('/api/asha/tasks/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId, findings })
+        });
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({ error: 'Visit completion request rejected.' }));
+          throw new Error(errData.error || `Failed to complete visit (Status ${response.status})`);
+        }
+      } catch (err) {
+        console.error('Failed to persist task completion to backend:', err);
+        throw err;
       }
-
-      this.state.notifications.unshift({
-        id: 'notif-' + Date.now(),
-        targetRole: 'asha',
-        category: 'Task Completed',
-        title: `Household Task Completed`,
-        message: `Field visit for ${task.headName} (${task.familyId}) marked complete.`,
-        time: 'Just now',
-        read: false
-      });
-
-      this.saveState();
-      this.notify('ASHA_TASK_COMPLETED', { taskId, task });
-      return true;
     }
-    return false;
+
+    // Only update local state once backend confirms success!
+    task.status = 'Completed';
+    task.completedAt = 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    task.findings = findings;
+
+    if (this.state.users.asha && this.state.users.asha.pendingFollowupsCount > 0) {
+      this.state.users.asha.pendingFollowupsCount -= 1;
+    }
+
+    this.state.notifications.unshift({
+      id: 'notif-' + Date.now(),
+      targetRole: 'asha',
+      category: 'Task Completed',
+      title: `Household Task Completed`,
+      message: `Field visit for ${task.headName} (${task.familyId}) marked complete.`,
+      time: 'Just now',
+      read: false
+    });
+
+    this.saveState();
+    this.notify('ASHA_TASK_COMPLETED', { taskId, task });
+    return true;
   }
 
   addHouseholdVisit(visitData) {
@@ -1958,6 +1985,15 @@ class StateStore {
     };
 
     this.state.householdVisits.unshift(newVisit);
+
+    // Sync with Backend
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/asha/visits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newVisit)
+      }).catch(err => console.warn('Household visit server sync notice:', err.message));
+    }
 
     // Update citizen's monitoring status
     const citizen = this.state.userAccounts.find(u => u.id === newVisit.citizenId);

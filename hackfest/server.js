@@ -64,6 +64,7 @@ const uploadsDir = path.join(root, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 let port = Number(process.env.PORT) || 3000;
+const host = process.env.HOST || '0.0.0.0';
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const configuredGoogleRedirectUri = process.env.GOOGLE_REDIRECT_URI;
@@ -101,6 +102,74 @@ function saveConsultations() {
 
 function saveReferrals() {
   fs.writeFileSync(referralsFile, JSON.stringify(referrals, null, 2));
+}
+
+const ashaTasksFile = path.join(root, 'asha_tasks.json');
+const defaultAshaTasks = [
+  {
+    id: 'task-1',
+    ashaId: 'ASHA-204',
+    familyId: 'FAM-10284',
+    headName: 'Rahul Sharma',
+    citizenId: 'C10291',
+    address: 'House #42, Sector 9, Zone C',
+    priority: 'High',
+    reason: 'Household cluster signal: 2 members reported symptoms in 7 days',
+    date: '24 Aug',
+    status: 'Scheduled',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'task-2',
+    ashaId: 'ASHA-204',
+    familyId: 'FAM-10310',
+    headName: 'Pooja Verma',
+    citizenId: 'C10304',
+    address: 'Block 4, Lane 2, Zone C',
+    priority: 'High',
+    reason: 'Severe acute febrile report needing vitals check & water source query',
+    date: '23 Aug',
+    status: 'Pending Verification',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'task-3',
+    ashaId: 'ASHA-204',
+    familyId: 'FAM-10332',
+    headName: 'Mohd. Imran',
+    citizenId: 'C10312',
+    address: 'House #12, Market St, Zone C',
+    priority: 'Medium',
+    reason: 'Gastrointestinal symptom follow-up & ORS kit delivery',
+    date: '25 Aug',
+    status: 'Scheduled',
+    createdAt: new Date().toISOString()
+  }
+];
+let ashaTasks = fs.existsSync(ashaTasksFile) ? JSON.parse(fs.readFileSync(ashaTasksFile, 'utf8')) : defaultAshaTasks;
+
+const householdVisitsFile = path.join(root, 'household_visits.json');
+let householdVisits = fs.existsSync(householdVisitsFile) ? JSON.parse(fs.readFileSync(householdVisitsFile, 'utf8')) : [];
+
+function saveAshaTasks() {
+  fs.writeFileSync(ashaTasksFile, JSON.stringify(ashaTasks, null, 2));
+}
+
+function saveHouseholdVisits() {
+  fs.writeFileSync(householdVisitsFile, JSON.stringify(householdVisits, null, 2));
+}
+
+// Initial Sync of ASHA Tasks to Supabase
+if (db.isSupabaseActive()) {
+  (async () => {
+    try {
+      for (const t of ashaTasks) {
+        await db.upsertAshaTask(t);
+      }
+    } catch (e) {
+      console.warn('⚠️ Supabase ASHA tasks sync notice:', e.message);
+    }
+  })();
 }
 
 // Connected SSE Realtime Clients for Live Push Notifications
@@ -810,6 +879,160 @@ async function handleAuth(request, response, requestUrl) {
   }
 
   // --------------------------------------------------------------------------
+  // ASHA WORKER DASHBOARD: TASKS, VISITS & VERIFICATION APIS
+  // --------------------------------------------------------------------------
+  if (requestUrl.pathname === '/api/asha/tasks' && request.method === 'GET') {
+    const cookieHeader = parseCookies(request).sehat_setu_session;
+    const session = sessions.get(cookieHeader);
+    if (!session || !['asha', 'admin'].includes(session.role)) {
+      return sendJson(response, 403, { error: 'Access restricted to authorized ASHA workers and Administrators.' });
+    }
+    const filterStatus = requestUrl.searchParams.get('status');
+    let results = ashaTasks;
+    if (filterStatus === 'pending') results = results.filter(t => t.status !== 'Completed');
+    else if (filterStatus === 'completed') results = results.filter(t => t.status === 'Completed');
+    return sendJson(response, 200, { success: true, count: results.length, tasks: results });
+  }
+
+  if (requestUrl.pathname === '/api/asha/tasks/complete' && request.method === 'POST') {
+    try {
+      const cookieHeader = parseCookies(request).sehat_setu_session;
+      const session = sessions.get(cookieHeader);
+      if (!session) {
+        return sendJson(response, 401, { error: 'Authentication required.' });
+      }
+      if (!['asha', 'admin'].includes(session.role)) {
+        return sendJson(response, 403, { error: 'Only authorized ASHA workers or Administrators can complete household visits.' });
+      }
+
+      const data = await readBody(request);
+      if (!data.taskId) {
+        return sendJson(response, 400, { error: 'taskId is required.' });
+      }
+
+      const task = ashaTasks.find(t => t.id === data.taskId);
+      if (!task) {
+        return sendJson(response, 404, { error: `Task '${data.taskId}' not found.` });
+      }
+
+      // Idempotency: Prevent duplicate submissions
+      if (task.status === 'Completed') {
+        return sendJson(response, 200, {
+          success: true,
+          message: 'Task is already marked completed.',
+          task
+        });
+      }
+
+      const completedTimestamp = new Date().toISOString();
+      const findings = data.findings || data.observations || 'Routine household survey conducted. Hydration & vitals reviewed.';
+      task.status = 'Completed';
+      task.completedAt = completedTimestamp;
+      task.findings = findings;
+      task.completedBy = session.user.id;
+      task.completedByName = session.user.name;
+
+      saveAshaTasks();
+
+      // Cloud Database Sync
+      if (db.isSupabaseActive()) {
+        await db.updateAshaTaskStatus(task.id, 'Completed');
+      }
+
+      broadcastEvent('ASHA_TASK_COMPLETED', {
+        taskId: task.id,
+        task,
+        message: `Field visit for ${task.headName} (${task.familyId}) completed by ${session.user.name}.`
+      });
+
+      return sendJson(response, 200, { success: true, message: 'Household visit successfully completed.', task });
+    } catch (e) {
+      return sendJson(response, 500, { error: e.message });
+    }
+  }
+
+  if (requestUrl.pathname === '/api/asha/visits' && request.method === 'GET') {
+    return sendJson(response, 200, { success: true, count: householdVisits.length, visits: householdVisits });
+  }
+
+  if (requestUrl.pathname === '/api/asha/visits' && request.method === 'POST') {
+    try {
+      const cookieHeader = parseCookies(request).sehat_setu_session;
+      const session = sessions.get(cookieHeader);
+      if (!session || !['asha', 'admin'].includes(session.role)) {
+        return sendJson(response, 403, { error: 'Only authorized ASHA workers or Administrators can log visits.' });
+      }
+
+      const data = await readBody(request);
+      const visit = {
+        id: data.id || `VIS-${Date.now()}`,
+        citizenId: data.citizenId || 'C10291',
+        citizenName: data.citizenName || 'Patient',
+        familyId: data.familyId || 'FAM-10284',
+        ashaId: session.user.id || 'ASHA-204',
+        ashaName: session.user.name || 'Sunita Devi',
+        date: data.date || new Date().toISOString(),
+        vitals: data.vitals || { bp: '120/80', pulse: '76', temp: '98.6°F', spo2: '99%' },
+        symptoms: data.symptoms || [],
+        observations: data.observations || 'Routine household checkup.',
+        actionTaken: data.actionTaken || 'Provided health advisory.',
+        monitoringStatus: data.monitoringStatus || 'Routine Monitoring',
+        status: 'Completed',
+        createdAt: new Date().toISOString()
+      };
+
+      householdVisits.unshift(visit);
+      saveHouseholdVisits();
+
+      broadcastEvent('NEW_HOUSEHOLD_VISIT', {
+        visit,
+        message: `New household visit recorded for ${visit.citizenName} (${visit.familyId})`
+      });
+
+      return sendJson(response, 201, { success: true, visit });
+    } catch (e) {
+      return sendJson(response, 400, { error: e.message });
+    }
+  }
+
+  if (requestUrl.pathname === '/api/asha/verify' && request.method === 'POST') {
+    try {
+      const cookieHeader = parseCookies(request).sehat_setu_session;
+      const session = sessions.get(cookieHeader);
+      if (!session || !['asha', 'admin'].includes(session.role)) {
+        return sendJson(response, 403, { error: 'Only authorized ASHA workers or Administrators can submit field verifications.' });
+      }
+
+      const data = await readBody(request);
+      const verification = {
+        zoneId: data.zoneId || 'Zone C',
+        outcome: data.outcome || 'Signal Verified',
+        fieldNotes: data.fieldNotes || '',
+        followUpStatus: data.followUpStatus || 'High Priority Sanitation Check',
+        verifiedBy: session.user.id,
+        verifiedByName: session.user.name,
+        verifiedAt: new Date().toISOString()
+      };
+
+      broadcastEvent('ASHA_VERIFICATION_SUBMITTED', {
+        verification,
+        message: `ASHA ${session.user.name} submitted field verification for ${verification.zoneId}. Outcome: ${verification.outcome}.`
+      });
+
+      const zoneStatus = verification.outcome === 'Signal Verified' ? 'Signal Verified by ASHA' : 'Verification Completed (' + verification.outcome + ')';
+      return sendJson(response, 200, { success: true, verification, zoneStatus });
+    } catch (e) {
+      return sendJson(response, 400, { error: e.message });
+    }
+  }
+
+  if (requestUrl.pathname === '/api/asha/citizens' && request.method === 'GET') {
+    const ashaZone = requestUrl.searchParams.get('zone') || 'Zone C';
+    const zoneCitizens = users.filter(u => u.role === 'citizen' && (u.zone === ashaZone || !u.zone || ashaZone === 'all')).map(publicUser);
+    return sendJson(response, 200, { success: true, count: zoneCitizens.length, citizens: zoneCitizens });
+  }
+
+  // --------------------------------------------------------------------------
   // AI OUTBREAK CLUSTER PREDICTION ENGINE
   // --------------------------------------------------------------------------
   if (requestUrl.pathname === '/api/ai/outbreak-prediction') {
@@ -1063,12 +1286,16 @@ async function handleAuth(request, response, requestUrl) {
     }
   }
 
-  if (requestUrl.pathname === '/auth/logout') {
+  if (requestUrl.pathname === '/auth/logout' || requestUrl.pathname === '/api/auth/logout') {
     const cookieHeader = parseCookies(request).sehat_setu_session;
     sessions.delete(cookieHeader);
     saveSessions();
     if (cookieHeader && db.isSupabaseActive()) {
       await db.deleteSessionFromDb(cookieHeader);
+    }
+    if (requestUrl.pathname === '/api/auth/logout') {
+      response.setHeader('Set-Cookie', 'sehat_setu_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
+      return sendJson(response, 200, { success: true, message: 'Logged out successfully' });
     }
     redirect(response, '/login.html', ['sehat_setu_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0']);
     return true;
@@ -1137,18 +1364,18 @@ const server = http.createServer(async (request, response) => {
 server.on('error', error => {
   if (error.code === 'EADDRINUSE') {
     const nextPort = Number(port) + 1;
-    console.warn(`⚠️ Port ${port} is currently in use. Automatically switching to http://127.0.0.1:${nextPort}...`);
+    console.warn(`⚠️ Port ${port} is currently in use. Automatically switching to http://${host}:${nextPort}...`);
     port = nextPort;
     setTimeout(() => {
-      server.listen(port, '127.0.0.1');
+      server.listen(port, host);
     }, 250);
     return;
   }
   throw error;
 });
 
-server.listen(port, '127.0.0.1', () => {
-  console.log(`Sehat Setu is running at http://127.0.0.1:${port}`);
+server.listen(port, host, () => {
+  console.log(`Sehat Setu is running at http://${host}:${port}`);
   if (db.isSupabaseActive()) {
     console.log('⚡ Database: Connected to Supabase PostgreSQL');
   } else {

@@ -191,6 +191,83 @@ async function runTests() {
     const rStatus = await req({ host: '127.0.0.1', port: 3000, path: '/api/db/status' });
     assert('DB Status returns valid health stats', rStatus.status === 200 && rStatus.body.usersCount > 0);
 
+    // 13. ASHA DASHBOARD & WORKER ENDPOINTS
+    console.log('\n--- 13. ASHA DASHBOARD & WORKER ENDPOINTS ---');
+    // ASHA Worker Login
+    const rAshaLogin = await req({ host: '127.0.0.1', port: 3000, path: '/api/auth/login', method: 'POST' }, { email: 'sunita.asha@health.gov.in', password: 'password123' });
+    assert('ASHA login returns 200', rAshaLogin.status === 200 && rAshaLogin.body.role === 'asha');
+    const ashaCookie = (rAshaLogin.headers['set-cookie'] || [])[0]?.split(';')[0];
+
+    // Citizen Forbidden on ASHA Tasks
+    const rCitizenAshaTasks = await req({ host: '127.0.0.1', port: 3000, path: '/api/asha/tasks', headers: { cookie: cookieVal } });
+    assert('Citizen access to /api/asha/tasks returns 403 Forbidden', rCitizenAshaTasks.status === 403);
+
+    // ASHA Authorized on Tasks
+    const rAshaTasks = await req({ host: '127.0.0.1', port: 3000, path: '/api/asha/tasks', headers: { cookie: ashaCookie } });
+    assert('ASHA access to /api/asha/tasks returns 200 with tasks', rAshaTasks.status === 200 && Array.isArray(rAshaTasks.body.tasks) && rAshaTasks.body.tasks.length > 0);
+    const targetTask = rAshaTasks.body.tasks[0];
+    assert('ASHA Task has correct structure (id, familyId, headName, address, status)', Boolean(targetTask.id && targetTask.familyId && targetTask.headName && targetTask.address && targetTask.status));
+
+    // Complete Visit - Unauthenticated
+    const rNoAuthComplete = await req({ host: '127.0.0.1', port: 3000, path: '/api/asha/tasks/complete', method: 'POST' }, { taskId: targetTask.id });
+    assert('Unauthenticated visit completion returns 401', rNoAuthComplete.status === 401);
+
+    // Complete Visit - Citizen Forbidden
+    const rCitizenComplete = await req({ host: '127.0.0.1', port: 3000, path: '/api/asha/tasks/complete', method: 'POST', headers: { cookie: cookieVal } }, { taskId: targetTask.id });
+    assert('Citizen visit completion returns 403 Forbidden', rCitizenComplete.status === 403);
+
+    // Complete Visit - ASHA Success
+    const rAshaComplete = await req({ host: '127.0.0.1', port: 3000, path: '/api/asha/tasks/complete', method: 'POST', headers: { cookie: ashaCookie } }, {
+      taskId: targetTask.id,
+      findings: 'Completed prenatal and hydration inspection. Vitals verified normal.'
+    });
+    assert('ASHA completes visit with 200 and updated status', rAshaComplete.status === 200 && rAshaComplete.body.success === true && rAshaComplete.body.task.status === 'Completed');
+
+    // Idempotent completion check
+    const rAshaCompleteAgain = await req({ host: '127.0.0.1', port: 3000, path: '/api/asha/tasks/complete', method: 'POST', headers: { cookie: ashaCookie } }, {
+      taskId: targetTask.id,
+      findings: 'Duplicate completion attempt'
+    });
+    assert('Duplicate completion is idempotent (200 success without error)', rAshaCompleteAgain.status === 200 && rAshaCompleteAgain.body.success === true);
+
+    // Log Household Visit
+    const rLogVisit = await req({ host: '127.0.0.1', port: 3000, path: '/api/asha/visits', method: 'POST', headers: { cookie: ashaCookie } }, {
+      citizenId: 'C10291',
+      citizenName: 'Rahul Sharma',
+      familyId: 'FAM-10284',
+      observations: 'Field checkup completed. Oral rehydration supplied.',
+      vitals: { bp: '120/80', pulse: '76', temp: '98.4 F', spo2: '99%' }
+    });
+    assert('Log household visit returns 201', rLogVisit.status === 201 && rLogVisit.body.success === true);
+
+    const rGetVisits = await req({ host: '127.0.0.1', port: 3000, path: '/api/asha/visits', headers: { cookie: ashaCookie } });
+    assert('Get household visits returns visits list', rGetVisits.status === 200 && Array.isArray(rGetVisits.body.visits));
+
+    // Field Survey Verification
+    const rVerify = await req({ host: '127.0.0.1', port: 3000, path: '/api/asha/verify', method: 'POST', headers: { cookie: ashaCookie } }, {
+      zoneId: 'Zone C',
+      outcome: 'Signal Verified',
+      fieldNotes: 'Inspected 8 households in Sector 9. Confirmed 4 individuals recovering from mild gastroenteritis.'
+    });
+    assert('Submit field verification returns 200', rVerify.status === 200 && rVerify.body.success === true && rVerify.body.zoneStatus === 'Signal Verified by ASHA');
+
+    // ASHA Citizens lookup
+    const rAshaCitizens = await req({ host: '127.0.0.1', port: 3000, path: '/api/asha/citizens', headers: { cookie: ashaCookie } });
+    assert('Get ASHA assigned citizens returns 200 with citizens array', rAshaCitizens.status === 200 && Array.isArray(rAshaCitizens.body.citizens) && rAshaCitizens.body.citizens.length > 0);
+
+    // 14. PROFILE CLEANUP & SECURITY VERIFICATION
+    console.log('\n--- 14. PROFILE CLEANUP & SECURITY VERIFICATION ---');
+    const freshAppJs = fs.readFileSync('hackfest/js/app.js', 'utf8');
+    assert('Switch Active Account UI is completely removed from app.js', !freshAppJs.includes('Switch Active Account'));
+    assert('switchAccount method is completely removed from app.js', !freshAppJs.includes('switchAccount('));
+    assert('Account Security & Credentials card is present in app.js', freshAppJs.includes('Account Security & Credentials'));
+    assert('Demo Surveillance Dataset disclaimer is rendered in ASHA dashboard', freshAppJs.includes('Demo Surveillance Dataset'));
+    assert('Visit complete button has async error handling and loading feedback', freshAppJs.includes('Completing...') && freshAppJs.includes('handleCompleteAshaTask'));
+
+    // Logout endpoint
+    const rLogout = await req({ host: '127.0.0.1', port: 3000, path: '/api/auth/logout', method: 'POST', headers: { cookie: ashaCookie } });
+    assert('API Logout returns 200 and clears session cookie', rLogout.status === 200 && rLogout.headers['set-cookie'] && rLogout.headers['set-cookie'][0].includes('Max-Age=0'));
+
     console.log('\n====================================================');
     console.log('TOTAL TESTS: ' + (passed + failed) + ' | PASSED: ' + passed + ' | FAILED: ' + failed);
     console.log('====================================================');

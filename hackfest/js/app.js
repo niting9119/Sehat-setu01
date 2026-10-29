@@ -2859,7 +2859,7 @@ window.SehatApp = {
                   <span>Date: <strong>${t.date}</strong> ${t.completedAt ? `• (${t.completedAt})` : ''}</span>
                   ${t.status !== 'Completed' ? `
                     <div style="display: flex; gap: 0.4rem;">
-                      <button class="btn btn-sm btn-primary" onclick="window.SehatApp.handleCompleteAshaTask('${t.id}')">
+                      <button class="btn btn-sm btn-primary" onclick="window.SehatApp.handleCompleteAshaTask('${t.id}', this)">
                         ✓ Complete Visit
                       </button>
                     </div>
@@ -3167,6 +3167,18 @@ window.SehatApp = {
     // =========================================================================
     const dueTasksCount = tasks.filter(t => t.status !== 'Completed').length;
     const activeRefCounts = referrals.filter(r => r.status !== 'Completed').length;
+    const zoneC = state.zones && state.zones['Zone C'] ? state.zones['Zone C'] : { riskScore: 84, reportsCount: 31, baseline: 10, riskLevel: 'HIGH' };
+    const zoneCReports = (state.healthReports || []).filter(r => r.zone === 'Zone C');
+    const totalReports = (zoneC.reportsCount || 31) + zoneCReports.length;
+    const baseline = zoneC.baseline || 10;
+    const surgePercent = Math.max(0, Math.round(((totalReports - baseline) / baseline) * 100));
+
+    // Distinct household clusters based on family IDs and addresses
+    const distinctClusters = new Set();
+    tasks.filter(t => (t.address && t.address.includes('Zone C')) || (t.zone && t.zone.includes('Zone C'))).forEach(t => distinctClusters.add(t.familyId || t.address));
+    citizens.filter(c => c.zone === 'Zone C').forEach(c => distinctClusters.add(c.familyId || c.address));
+    zoneCReports.forEach(r => distinctClusters.add(r.householdId || r.citizenId || r.location));
+    const clusterCount = Math.max(4, distinctClusters.size);
 
     return `
       <div>
@@ -3177,32 +3189,36 @@ window.SehatApp = {
             <div style="font-size: 1.5rem; font-family: var(--font-mono); font-weight: 800; color: var(--accent-emerald);">${citizens.length}</div>
             <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">Click to view directory →</div>
           </div>
-          <div class="card" style="cursor: pointer; padding: 0.85rem; border-left: 4px solid var(--primary-600);" onclick="window.SehatRouter.navigate('/asha/health-visits')">
+          <div class="card" style="cursor: pointer; padding: 0.85rem; border-left: 4px solid var(--primary-600);" onclick="window.SehatRouter.navigate('/asha/health-visits?filter=pending')">
             <div style="font-size: 0.725rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Visits Due</div>
             <div style="font-size: 1.5rem; font-family: var(--font-mono); font-weight: 800; color: var(--primary-600);">${dueTasksCount}</div>
             <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">Click to view visits queue →</div>
           </div>
-          <div class="card" style="cursor: pointer; padding: 0.85rem; border-left: 4px solid var(--accent-purple);" onclick="window.SehatRouter.navigate('/asha/referrals')">
+          <div class="card" style="cursor: pointer; padding: 0.85rem; border-left: 4px solid var(--accent-purple);" onclick="window.SehatRouter.navigate('/asha/referrals?filter=pending')">
             <div style="font-size: 0.725rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Active Referrals</div>
             <div style="font-size: 1.5rem; font-family: var(--font-mono); font-weight: 800; color: var(--accent-purple);">${activeRefCounts}</div>
             <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">Click to track referrals →</div>
           </div>
           <div class="card" style="cursor: pointer; padding: 0.85rem; border-left: 4px solid var(--risk-high-border);" onclick="window.SehatRouter.navigate('/asha/alerts')">
             <div style="font-size: 0.725rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Zone C Risk</div>
-            <div style="font-size: 1.5rem; font-family: var(--font-mono); font-weight: 800; color: var(--risk-high-border);">84/100</div>
-            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">High Risk Cluster Signal →</div>
+            <div style="font-size: 1.5rem; font-family: var(--font-mono); font-weight: 800; color: var(--risk-high-border);">${zoneC.riskScore}/100</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">[Demo Surveillance] High Risk →</div>
           </div>
         </div>
 
         <!-- High Priority Cluster Signal Alert -->
         <div class="card" style="border-left: 4px solid var(--risk-high-border); margin-bottom: 1.35rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <span class="badge badge-high"><span class="badge-dot"></span> Risk Score: 84/100 (HIGH OUTBREAK RISK)</span>
-            <span style="font-size: 0.75rem; color: var(--text-muted);">Zone C — Urban North Ward</span>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span class="badge badge-high"><span class="badge-dot"></span> Risk Score: ${zoneC.riskScore}/100 (${zoneC.riskLevel || 'HIGH OUTBREAK RISK'})</span>
+              <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: #0284c7; border: 1px solid rgba(14, 165, 233, 0.3); font-size: 0.68rem; font-weight: 600;">Demo Surveillance Dataset</span>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Zone C — Urban North Ward • Last Updated: ${zoneC.verificationDetails?.verificationDate || 'Recently synced'}</span>
           </div>
           <h4 style="font-size: 1.05rem; margin-bottom: 0.35rem;">🚨 Gastrointestinal Cluster Outbreak Signal</h4>
           <p style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.85rem;">
-            31 symptom reports recorded vs 10 historical baseline (+42% surge). 4 distinct household clusters identified.
+            ${totalReports} symptom reports recorded vs ${baseline} historical baseline (+${surgePercent}% surge). ${clusterCount} distinct household clusters identified in Sector 9 & Market St.
+            ${zoneC.verificationDetails?.status === 'Verified' ? `<br><strong style="color: var(--accent-emerald);">✓ Field survey completed by ${zoneC.verificationDetails.verifiedBy} (${zoneC.verificationDetails.outcome})</strong>` : ''}
           </p>
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <button class="btn btn-primary btn-sm" onclick="window.SehatUI.openAshaVerificationModal('Zone C')">
@@ -3236,7 +3252,7 @@ window.SehatApp = {
               <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 0.5rem; font-size: 0.75rem;">
                 <span>Due Date: <strong>${t.date}</strong> ${t.completedAt ? `• (${t.completedAt})` : ''}</span>
                 ${t.status !== 'Completed' ? `
-                  <button class="btn btn-sm btn-primary" onclick="window.SehatApp.handleCompleteAshaTask('${t.id}')">
+                  <button class="btn btn-sm btn-primary" onclick="window.SehatApp.handleCompleteAshaTask('${t.id}', this)">
                     ✓ Complete Visit
                   </button>
                 ` : `
@@ -3625,32 +3641,37 @@ window.SehatApp = {
               </div>
             </div>
 
-            <!-- 3. SWITCH ACTIVE ACCOUNT CARD -->
+            <!-- 3. ACCOUNT SECURITY & CREDENTIALS CARD -->
             <div style="display: flex; flex-direction: column; gap: 1.25rem;">
               <div class="card">
                 <div class="card-header">
-                  <div class="card-title"><span>🔄</span> Switch Active Account</div>
+                  <div class="card-title"><span>🔐</span> Account Security & Credentials</div>
                 </div>
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem;">
-                  Seamlessly switch between verified stakeholder roles to test role-specific dashboards and permissions.
+                  Review your active session security, role access level, and credential details.
                 </p>
-                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                  <button class="btn btn-sm ${user.role === 'citizen' ? 'btn-primary' : 'btn-secondary'}" onclick="window.SehatApp.switchAccount('rahul.sharma@example.com', 'password123', 'citizen')" style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>👤 Rahul Sharma (Citizen)</span>
-                    ${user.role === 'citizen' ? '<span class="badge badge-normal" style="font-size: 0.65rem;">Active</span>' : ''}
-                  </button>
-                  <button class="btn btn-sm ${user.role === 'doctor' ? 'btn-primary' : 'btn-secondary'}" onclick="window.SehatApp.switchAccount('dr.arishta@health.gov.in', 'password123', 'doctor')" style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>🩺 Dr. Arishta (Doctor)</span>
-                    ${user.role === 'doctor' ? '<span class="badge badge-normal" style="font-size: 0.65rem;">Active</span>' : ''}
-                  </button>
-                  <button class="btn btn-sm ${user.role === 'asha' ? 'btn-primary' : 'btn-secondary'}" onclick="window.SehatApp.switchAccount('sunita.asha@health.gov.in', 'password123', 'asha')" style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>👩‍⚕️ Sunita Devi (ASHA Worker)</span>
-                    ${user.role === 'asha' ? '<span class="badge badge-normal" style="font-size: 0.65rem;">Active</span>' : ''}
-                  </button>
-                  <button class="btn btn-sm ${user.role === 'admin' ? 'btn-primary' : 'btn-secondary'}" onclick="window.SehatApp.switchAccount('director.idsp@nic.in', 'password123', 'admin')" style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>🏛️ Director Paul (Admin / IDSP)</span>
-                    ${user.role === 'admin' ? '<span class="badge badge-normal" style="font-size: 0.65rem;">Active</span>' : ''}
-                  </button>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.825rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-surface-subtle); border-radius: var(--radius-sm);">
+                    <span style="color: var(--text-muted);">Session Status:</span>
+                    <span class="badge badge-normal" style="font-size: 0.7rem;">Active & Authenticated</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-surface-subtle); border-radius: var(--radius-sm);">
+                    <span style="color: var(--text-muted);">Role Permission:</span>
+                    <strong style="text-transform: uppercase; color: var(--primary-700);">${user.role || 'Citizen'}</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-surface-subtle); border-radius: var(--radius-sm);">
+                    <span style="color: var(--text-muted);">Registered Email:</span>
+                    <strong style="font-family: var(--font-mono); font-size: 0.75rem;">${user.email || 'user@health.gov.in'}</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-surface-subtle); border-radius: var(--radius-sm);">
+                    <span style="color: var(--text-muted);">Auth Security:</span>
+                    <span>HTTPS • HTTPOnly Cookie</span>
+                  </div>
+                </div>
+                <div style="margin-top: 1rem; border-top: 1px solid var(--border-subtle); padding-top: 0.75rem;">
+                  <a href="/auth/logout" class="btn btn-outline" style="width: 100%; text-align: center; color: var(--accent-red); border-color: var(--accent-red); display: block;">
+                    🚪 Sign Out Securely
+                  </a>
                 </div>
               </div>
             </div>
@@ -4352,11 +4373,23 @@ window.SehatApp = {
     window.SehatUI.openModal('modal-medical-record-form');
   },
 
-  handleCompleteAshaTask(taskId) {
-    const success = window.SehatState.completeAshaTask(taskId);
-    if (success) {
+  async handleCompleteAshaTask(taskId, btnEl) {
+    if (btnEl) {
+      if (btnEl.disabled) return;
+      btnEl.disabled = true;
+      btnEl.dataset.originalText = btnEl.innerHTML;
+      btnEl.innerHTML = '⏳ Completing...';
+    }
+    try {
+      await window.SehatState.completeAshaTask(taskId);
       window.SehatUI.showToast('Task Completed', 'Household round and visit verified successfully.', 'success');
       this.renderCurrentView();
+    } catch (err) {
+      if (btnEl) {
+        btnEl.disabled = false;
+        btnEl.innerHTML = btnEl.dataset.originalText || '✓ Complete Visit';
+      }
+      window.SehatUI.showToast('Error', err.message || 'Failed to complete visit on server.', 'error');
     }
   },
 
@@ -4641,30 +4674,6 @@ window.SehatApp = {
     const user = window.SehatState.getCurrentUser() || {};
     const role = window.SehatState.getCurrentRole() || user.role || 'citizen';
     window.SehatRouter.navigate(`/${role}/profile`);
-  },
-
-  async switchAccount(email, password, role) {
-    window.SehatUI.showToast('Switching Role', `Authenticating as ${role.toUpperCase()}...`, 'info');
-    try {
-      const res = await window.SehatState.login(email, password, role);
-      if (res && res.authenticated) {
-        window.SehatUI.showToast('Role Switched', `Logged in as ${res.user.name} (${role.toUpperCase()})`, 'success');
-        window.SehatRouter.navigate(`/${role}/dashboard`);
-        this.renderCurrentView();
-      } else {
-        const defaultUser = window.SehatState.getState().users[role];
-        window.SehatState.hydrateGoogleSession({ role, user: defaultUser });
-        window.SehatUI.showToast('Role Switched', `Active profile: ${defaultUser?.name || role.toUpperCase()}`, 'success');
-        window.SehatRouter.navigate(`/${role}/dashboard`);
-        this.renderCurrentView();
-      }
-    } catch (err) {
-      console.warn('Switch account fallback:', err);
-      const defaultUser = window.SehatState.getState().users[role];
-      window.SehatState.hydrateGoogleSession({ role, user: defaultUser });
-      window.SehatRouter.navigate(`/${role}/dashboard`);
-      this.renderCurrentView();
-    }
   }
 };
 
