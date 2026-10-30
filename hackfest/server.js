@@ -64,7 +64,7 @@ const uploadsDir = path.join(root, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 let port = Number(process.env.PORT) || 3000;
-const host = process.env.HOST || '0.0.0.0';
+const host = '0.0.0.0';
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const configuredGoogleRedirectUri = process.env.GOOGLE_REDIRECT_URI;
@@ -1362,20 +1362,21 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.on('error', error => {
-  if (error.code === 'EADDRINUSE') {
+  if (error.code === 'EADDRINUSE' && !process.env.PORT) {
     const nextPort = Number(port) + 1;
-    console.warn(`⚠️ Port ${port} is currently in use. Automatically switching to http://${host}:${nextPort}...`);
+    console.warn(`⚠️ Port ${port} is currently in use. Automatically switching to http://0.0.0.0:${nextPort}...`);
     port = nextPort;
     setTimeout(() => {
-      server.listen(port, host);
+      server.listen(port, '0.0.0.0');
     }, 250);
     return;
   }
+  console.error(`❌ Server failed to bind to 0.0.0.0:${port}:`, error.message);
   throw error;
 });
 
-server.listen(port, host, () => {
-  console.log(`Sehat Setu is running at http://${host}:${port}`);
+server.listen(port, '0.0.0.0', () => {
+  console.log(`🚀 Sehat Setu is running at http://0.0.0.0:${port}`);
   if (db.isSupabaseActive()) {
     console.log('⚡ Database: Connected to Supabase PostgreSQL');
   } else {
