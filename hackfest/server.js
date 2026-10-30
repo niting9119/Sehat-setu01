@@ -65,9 +65,63 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 let port = Number(process.env.PORT) || 3000;
 const host = '0.0.0.0';
-const googleClientId = process.env.GOOGLE_CLIENT_ID;
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const configuredGoogleRedirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+// --- Google OAuth Configuration & Diagnostic Validator ---
+function getGoogleOAuthCredentials() {
+  const rawId = process.env.GOOGLE_CLIENT_ID;
+  const rawSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const rawRedirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+  if (!rawId || !rawId.trim() || !rawSecret || !rawSecret.trim()) {
+    return {
+      configured: false,
+      malformed: false,
+      error: 'Google OAuth credentials missing. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in environment.'
+    };
+  }
+
+  // Check for embedded newlines (\r, \n, %0A, %0D) or whitespace inside the client ID
+  const hasNewline = /[\r\n]/.test(rawId) || rawId.includes('%0A') || rawId.includes('%0D');
+  const hasInternalWhitespace = /\s/.test(rawId.trim());
+
+  if (hasNewline || hasInternalWhitespace) {
+    return {
+      configured: false,
+      malformed: true,
+      hasNewline,
+      hasWhitespace: hasInternalWhitespace,
+      error: 'GOOGLE_CLIENT_ID is malformed: contains embedded newline (%0A) or whitespace characters. Please update environment variables in your Render dashboard.'
+    };
+  }
+
+  const clientId = rawId.trim().replace(/^['"]|['"]$/g, '');
+  const clientSecret = rawSecret.trim().replace(/^['"]|['"]$/g, '');
+  const redirectUri = rawRedirectUri ? rawRedirectUri.trim().replace(/^['"]|['"]$/g, '') : null;
+
+  // Expected Google Web OAuth Client ID pattern: [numbers]-[hash].apps.googleusercontent.com
+  const isValidFormat = /^[0-9]+-[a-z0-9_]+\.apps\.googleusercontent\.com$/.test(clientId);
+
+  return {
+    configured: true,
+    malformed: false,
+    clientId,
+    clientSecret,
+    redirectUri,
+    isValidFormat,
+    clientIdMasked: clientId.length > 20 ? `${clientId.slice(0, 12)}...${clientId.slice(-16)}` : '[Configured]'
+  };
+}
+
+// Safe Diagnostic Logging on Server Startup
+const initialOAuthConfig = getGoogleOAuthCredentials();
+if (initialOAuthConfig.malformed) {
+  console.error('❌ [Google OAuth] CRITICAL: GOOGLE_CLIENT_ID contains newline (%0A) or whitespace characters! Authorization requests are blocked until environment variables are updated in Render.');
+} else if (initialOAuthConfig.configured) {
+  console.log(`⚡ [Google OAuth] Configured and validated: Client ID (${initialOAuthConfig.clientIdMasked}), Pattern: ${initialOAuthConfig.isValidFormat ? 'Valid Web Client' : 'Non-standard'}`);
+} else {
+  console.log('ℹ️ [Google OAuth] Not configured (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set).');
+}
+
 const oauthStates = new Map();
 const sessions = new Map();
 const usersFile = path.join(root, 'users.json');
@@ -523,7 +577,33 @@ function calculateOutbreakPredictions() {
 }
 
 async function handleAuth(request, response, requestUrl) {
-  const googleRedirectUri = configuredGoogleRedirectUri || `http://127.0.0.1:${port}/auth/google/callback`;
+  const oauthConfig = getGoogleOAuthCredentials();
+  const proto = (request.headers['x-forwarded-proto'] || (request.socket.encrypted ? 'https' : 'http')).split(',')[0].trim();
+  const hostHeader = request.headers['x-forwarded-host'] || request.headers.host || `127.0.0.1:${port}`;
+  const googleRedirectUri = oauthConfig.redirectUri || `${proto}://${hostHeader}/auth/google/callback`;
+
+  // --------------------------------------------------------------------------
+  // GOOGLE OAUTH DIAGNOSTIC STATUS (Safe Public Diagnostic Endpoint)
+  // --------------------------------------------------------------------------
+  if (requestUrl.pathname === '/api/auth/google/status' && request.method === 'GET') {
+    sendJson(response, 200, {
+      ready: Boolean(oauthConfig.configured && !oauthConfig.malformed && oauthConfig.isValidFormat),
+      clientIdConfigured: Boolean(process.env.GOOGLE_CLIENT_ID),
+      clientIdMasked: oauthConfig.clientIdMasked || null,
+      clientIdHasNewline: Boolean(oauthConfig.hasNewline),
+      clientIdHasWhitespace: Boolean(oauthConfig.hasWhitespace),
+      clientIdValidFormat: Boolean(oauthConfig.isValidFormat),
+      clientSecretConfigured: Boolean(process.env.GOOGLE_CLIENT_SECRET),
+      configuredRedirectUri: process.env.GOOGLE_REDIRECT_URI || null,
+      effectiveRedirectUri: googleRedirectUri,
+      statusMessage: oauthConfig.malformed
+        ? 'GOOGLE_CLIENT_ID contains invalid newline (%0A) or whitespace. Remove line breaks in Render Environment variables.'
+        : !oauthConfig.configured
+          ? 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Render Environment variables.'
+          : 'Google OAuth configuration is valid.'
+    });
+    return true;
+  }
 
   // --------------------------------------------------------------------------
   // LOCATION API (Country -> State -> District -> Block)
@@ -1069,16 +1149,25 @@ async function handleAuth(request, response, requestUrl) {
   }
 
   if (requestUrl.pathname === '/auth/google') {
-    if (!googleClientId || !googleClientSecret) {
-      sendJson(response, 503, { error: 'Google OAuth is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env.' });
+    if (!oauthConfig.configured) {
+      if (oauthConfig.malformed) {
+        console.error('🚨 [Google OAuth Error] Initiation blocked: GOOGLE_CLIENT_ID contains newline (%0A) or whitespace characters.');
+        const errMsg = encodeURIComponent('Google OAuth Error: GOOGLE_CLIENT_ID contains an invalid line-break or whitespace character in Render settings. Please update your environment variables.');
+        redirect(response, `/login.html?authError=${errMsg}`);
+        return true;
+      }
+      sendJson(response, 503, { error: 'Google OAuth is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to environment variables.' });
       return true;
     }
+
+    console.log(`ℹ️ [Google OAuth] Initiating flow with Client ID (${oauthConfig.clientIdMasked}) and Redirect URI: ${googleRedirectUri}`);
+
     const role = ['citizen', 'doctor', 'asha', 'admin'].includes(requestUrl.searchParams.get('role')) ? requestUrl.searchParams.get('role') : 'citizen';
     const mode = requestUrl.searchParams.get('mode') === 'signup' ? 'signup' : 'login';
     const state = crypto.randomBytes(32).toString('hex');
     oauthStates.set(state, { role, mode, expiresAt: Date.now() + 10 * 60 * 1000 });
     const params = new URLSearchParams({
-      client_id: googleClientId,
+      client_id: oauthConfig.clientId,
       redirect_uri: googleRedirectUri,
       response_type: 'code',
       scope: 'openid email profile',
@@ -1097,11 +1186,15 @@ async function handleAuth(request, response, requestUrl) {
       redirect(response, '/login.html?authError=google_cancelled');
       return true;
     }
+    if (!oauthConfig.configured) {
+      redirect(response, '/login.html?authError=google_oauth_misconfigured');
+      return true;
+    }
     try {
       const tokenBody = new URLSearchParams({
         code: requestUrl.searchParams.get('code'),
-        client_id: googleClientId,
-        client_secret: googleClientSecret,
+        client_id: oauthConfig.clientId,
+        client_secret: oauthConfig.clientSecret,
         redirect_uri: googleRedirectUri,
         grant_type: 'authorization_code'
       }).toString();
@@ -1362,7 +1455,7 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.on('error', error => {
-  if (error.code === 'EADDRINUSE' && !process.env.PORT) {
+  if (error.code === 'EADDRINUSE') {
     const nextPort = Number(port) + 1;
     console.warn(`⚠️ Port ${port} is currently in use. Automatically switching to http://0.0.0.0:${nextPort}...`);
     port = nextPort;
@@ -1383,3 +1476,5 @@ server.listen(port, '0.0.0.0', () => {
     console.log('💾 Database: Running in local JSON mode (Set SUPABASE_URL and SUPABASE_KEY in .env to connect to cloud Supabase)');
   }
 });
+
+module.exports = { server, getPort: () => port };
