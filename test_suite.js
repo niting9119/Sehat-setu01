@@ -303,6 +303,38 @@ async function runTests() {
     assert('Redirect URI in URL matches callback endpoint', targetGoogleUrl.includes('redirect_uri=') && targetGoogleUrl.includes('auth%2Fgoogle%2Fcallback'));
     assert('OAuth state token is generated with 64 hex chars', targetGoogleUrl.includes('state='));
 
+    // 16. LOCAL AND PRODUCTION HOST/URL HANDLING
+    console.log('\n--- 16. LOCAL AND PRODUCTION HOST/URL HANDLING ---');
+    // Test 1: 0.0.0.0 host canonicalization (redirects 0.0.0.0 to localhost to prevent Chrome 0.0.0.0 deprecation warning)
+    const rZeroHost = await req({ host: '127.0.0.1', port: activePort, path: '/', headers: { host: `0.0.0.0:${activePort}` } });
+    assert('Requests to 0.0.0.0 are smoothly canonicalized (302 redirect)', rZeroHost.status === 302 && Boolean(rZeroHost.headers['location']));
+    assert('Canonical location points to http://localhost', rZeroHost.headers['location'] && rZeroHost.headers['location'].startsWith(`http://localhost:${activePort}`));
+
+    // Test 2: Localhost request serves 200 without redirecting to Render
+    const rLocalhost = await req({ host: '127.0.0.1', port: activePort, path: '/', headers: { host: `localhost:${activePort}` } });
+    assert('Localhost request returns 200 and stays local (no cross-environment redirect)', rLocalhost.status === 200);
+
+    // Test 3: OAuth redirect on localhost uses localhost callback (never 0.0.0.0)
+    const rLocalAuth = await req({ host: '127.0.0.1', port: activePort, path: '/auth/google?role=citizen', headers: { host: `localhost:${activePort}` } });
+    const localTarget = rLocalAuth.headers['location'] || '';
+    assert('Local Google OAuth uses localhost callback URI', localTarget.includes('redirect_uri=http%3A%2F%2Flocalhost'));
+    assert('Local Google OAuth never includes 0.0.0.0', !localTarget.includes('0.0.0.0'));
+
+    // Test 4: Production request uses https://sehat-setu-tzn2.onrender.com callback URI
+    const rProdAuth = await req({
+      host: '127.0.0.1',
+      port: activePort,
+      path: '/auth/google?role=citizen',
+      headers: {
+        host: 'sehat-setu-tzn2.onrender.com',
+        'x-forwarded-host': 'sehat-setu-tzn2.onrender.com',
+        'x-forwarded-proto': 'https'
+      }
+    });
+    const prodTarget = rProdAuth.headers['location'] || '';
+    assert('Production Google OAuth uses Render production callback URI', prodTarget.includes('redirect_uri=https%3A%2F%2Fsehat-setu-tzn2.onrender.com%2Fauth%2Fgoogle%2Fcallback'));
+    assert('Production Google OAuth never leaks localhost or 0.0.0.0', !prodTarget.includes('localhost') && !prodTarget.includes('127.0.0.1') && !prodTarget.includes('0.0.0.0'));
+
     console.log('\n====================================================');
     console.log('TOTAL TESTS: ' + (passed + failed) + ' | PASSED: ' + passed + ' | FAILED: ' + failed);
     console.log('====================================================');

@@ -26,6 +26,10 @@ body {
   flex-direction: column;
   transition: background-color var(--transition-normal), color var(--transition-normal);
   overflow-x: hidden;
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
 }
 
 /* Headings */
@@ -342,9 +346,135 @@ textarea {
 }
 
 /* Responsive Navigation Breakpoints */
+.mobile-menu-toggle {
+  display: none;
+}
+
+.mobile-nav-drawer {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .role-pill-nav {
     display: none;
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.25rem;
+  }
+
+  .mobile-nav-drawer {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    pointer-events: none;
+    visibility: hidden;
+    transition: visibility 0.25s ease;
+  }
+
+  .mobile-nav-drawer.active {
+    pointer-events: auto;
+    visibility: visible;
+  }
+
+  .mobile-nav-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  .mobile-nav-drawer.active .mobile-nav-overlay {
+    opacity: 1;
+  }
+
+  .mobile-nav-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 290px;
+    max-width: 86vw;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-xl);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 10;
+  }
+
+  .mobile-nav-drawer.active .mobile-nav-panel {
+    transform: translateX(0);
+  }
+
+  .mobile-nav-header {
+    padding: 1.15rem 1.25rem;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .mobile-nav-body {
+    padding: 1rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .mobile-nav-section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+  }
+
+  .mobile-nav-roles {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .mobile-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.75rem 0.95rem;
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-main);
+    background: var(--bg-surface-subtle);
+    border: 1px solid var(--border-subtle);
+    text-align: left;
+    transition: all var(--transition-fast);
+    cursor: pointer;
+    width: 100%;
+  }
+
+  .mobile-nav-btn:hover, .mobile-nav-btn.active {
+    background: var(--primary-50);
+    border-color: var(--primary-500);
+    color: var(--primary-800);
+  }
+
+  [data-theme="dark"] .mobile-nav-btn:hover, [data-theme="dark"] .mobile-nav-btn.active {
+    background: rgba(13, 148, 136, 0.18);
+    border-color: var(--primary-500);
+    color: var(--primary-200);
   }
 
   .footer-grid {
@@ -354,9 +484,42 @@ textarea {
 
   .demo-stepper-bar {
     top: 0;
+    padding: 0.4rem 0.85rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .demo-stepper-label {
+    font-size: 0.78rem;
+  }
+
+  .demo-stepper-controls {
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
   }
 
   .app-header {
-    top: 45px;
+    top: 0;
+  }
+
+  .container {
+    padding: 0 1rem;
+  }
+}
+
+@media (max-width: 600px) {
+  h1 { font-size: 1.85rem; }
+  h2 { font-size: 1.45rem; }
+  h3 { font-size: 1.2rem; }
+  .brand-subtitle { display: none; }
+  .nav-container { height: 58px; }
+  .brand-logo { font-size: 1.15rem; gap: 0.5rem; }
+  .brand-logo-icon { width: 34px; height: 34px; }
+  .container { padding: 0 0.75rem; }
+  .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
   }
 }

@@ -72,6 +72,24 @@ window.SehatUI = {
     document.body.style.overflow = '';
   },
 
+  // Mobile Drawer Manager
+  toggleMobileMenu() {
+    const drawer = document.getElementById('mobile-nav-drawer');
+    if (drawer) {
+      const willOpen = !drawer.classList.contains('active');
+      drawer.classList.toggle('active', willOpen);
+      document.body.style.overflow = willOpen ? 'hidden' : '';
+    }
+  },
+
+  closeMobileMenu() {
+    const drawer = document.getElementById('mobile-nav-drawer');
+    if (drawer) {
+      drawer.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  },
+
   // Zone Detail Modal
   openZoneDetailModal(zoneKey) {
     const state = window.SehatState.getState();

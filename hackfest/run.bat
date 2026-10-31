@@ -1,6 +1,6 @@
 @echo off
 echo =========================================================
-echo Starting Sehat Setu Web App (http://127.0.0.1:3000) ...
+echo Starting Sehat Setu Web App (http://localhost:3000) ...
 echo =========================================================
 start "Sehat Setu Web Server" /D "%~dp0" cmd /c "node server.js"
 if exist "%~dp0sehat_setu.exe" (

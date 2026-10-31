@@ -33,6 +33,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const https = require('node:https');
+const zlib = require('node:zlib');
 const { URL, URLSearchParams } = require('node:url');
 
 // --- 1. Load Local Environment Configuration ---
@@ -66,6 +67,68 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 let port = Number(process.env.PORT) || 3000;
 const host = '0.0.0.0';
 
+// --- Environment & Host Resolution Helpers ---
+function getEffectiveHost(request) {
+  const forwardedHost = request?.headers?.['x-forwarded-host'];
+  const hostHeader = request?.headers?.host;
+  let raw = (forwardedHost || hostHeader || `localhost:${port}`).trim();
+
+  // Normalize 0.0.0.0 and IPv6 wildcards to localhost for user-facing browser navigation
+  if (raw.startsWith('0.0.0.0') || raw.startsWith('::') || raw.startsWith('[::]')) {
+    const portPart = raw.split(':')[1] || port;
+    raw = `localhost:${portPart}`;
+  }
+  return raw;
+}
+
+function isLocalHost(request) {
+  const h = getEffectiveHost(request).split(':')[0].toLowerCase();
+  return h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0' || h === '::1';
+}
+
+function isProductionRequest(request) {
+  if (process.env.RENDER === 'true' || process.env.RENDER_EXTERNAL_HOSTNAME) return true;
+  const h = getEffectiveHost(request).toLowerCase();
+  if (h.includes('onrender.com')) return true;
+  return !isLocalHost(request);
+}
+
+function getEffectiveProtocol(request) {
+  const forwardedProto = request?.headers?.['x-forwarded-proto'];
+  if (forwardedProto) return forwardedProto.split(',')[0].trim();
+  if (request?.socket?.encrypted) return 'https';
+  if (isProductionRequest(request)) return 'https';
+  return 'http';
+}
+
+function getOAuthRedirectUri(request, oauthConfig) {
+  const isProd = isProductionRequest(request);
+  const configured = oauthConfig.redirectUri;
+
+  if (isProd) {
+    if (configured && configured.startsWith('https://') && !configured.includes('localhost') && !configured.includes('127.0.0.1') && !configured.includes('0.0.0.0')) {
+      return configured;
+    }
+    const reqHost = getEffectiveHost(request);
+    const prodHost = reqHost.includes('onrender.com') ? reqHost : (process.env.RENDER_EXTERNAL_HOSTNAME || process.env.APP_URL?.replace(/^https?:\/\//, '') || 'sehat-setu-tzn2.onrender.com');
+    return `https://${prodHost}/auth/google/callback`;
+  }
+
+  // Local development
+  const reqHost = getEffectiveHost(request);
+  if (configured) {
+    if (configured.includes('localhost') || configured.includes('127.0.0.1') || configured.includes('0.0.0.0')) {
+      if (reqHost.startsWith('127.0.0.1')) {
+        return configured.replace(/localhost|0\.0\.0\.0/, '127.0.0.1');
+      }
+      return configured.replace(/127\.0\.0\.1|0\.0\.0\.0/, 'localhost');
+    }
+  }
+
+  const proto = getEffectiveProtocol(request);
+  return `${proto}://${reqHost}/auth/google/callback`;
+}
+
 // --- Google OAuth Configuration & Diagnostic Validator ---
 function getGoogleOAuthCredentials() {
   const rawId = process.env.GOOGLE_CLIENT_ID;
@@ -76,21 +139,30 @@ function getGoogleOAuthCredentials() {
     return {
       configured: false,
       malformed: false,
+      rawLength: rawId ? rawId.length : 0,
       error: 'Google OAuth credentials missing. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in environment.'
     };
   }
 
-  // Check for embedded newlines (\r, \n, %0A, %0D) or whitespace inside the client ID
-  const hasNewline = /[\r\n]/.test(rawId) || rawId.includes('%0A') || rawId.includes('%0D');
+  // Safe character-level inspection for embedded CR/LF or whitespace
+  const containsCR = rawId.includes('\r');
+  const containsLF = rawId.includes('\n');
+  const containsEncodedLF = rawId.includes('%0A') || rawId.includes('%0a') || rawId.includes('%0D') || rawId.includes('%0d');
+  const hasNewline = containsCR || containsLF || containsEncodedLF;
   const hasInternalWhitespace = /\s/.test(rawId.trim());
+  const rawLength = rawId.length;
 
   if (hasNewline || hasInternalWhitespace) {
     return {
       configured: false,
       malformed: true,
+      rawLength,
+      containsCR,
+      containsLF,
+      containsEncodedLF,
       hasNewline,
       hasWhitespace: hasInternalWhitespace,
-      error: 'GOOGLE_CLIENT_ID is malformed: contains embedded newline (%0A) or whitespace characters. Please update environment variables in your Render dashboard.'
+      error: 'GOOGLE_CLIENT_ID is malformed: contains embedded newline (%0A/LF/CR) or whitespace characters. Please update environment variables in your Render dashboard.'
     };
   }
 
@@ -104,6 +176,12 @@ function getGoogleOAuthCredentials() {
   return {
     configured: true,
     malformed: false,
+    rawLength,
+    containsCR,
+    containsLF,
+    containsEncodedLF,
+    hasNewline: false,
+    hasWhitespace: false,
     clientId,
     clientSecret,
     redirectUri,
@@ -112,12 +190,12 @@ function getGoogleOAuthCredentials() {
   };
 }
 
-// Safe Diagnostic Logging on Server Startup
+// Safe Diagnostic Logging on Server Startup (Never logs secrets)
 const initialOAuthConfig = getGoogleOAuthCredentials();
 if (initialOAuthConfig.malformed) {
-  console.error('❌ [Google OAuth] CRITICAL: GOOGLE_CLIENT_ID contains newline (%0A) or whitespace characters! Authorization requests are blocked until environment variables are updated in Render.');
+  console.error(`❌ [Google OAuth Diagnostic] CRITICAL: GOOGLE_CLIENT_ID (length: ${initialOAuthConfig.rawLength}) contains newline (CR: ${initialOAuthConfig.containsCR}, LF: ${initialOAuthConfig.containsLF}, %0A: ${initialOAuthConfig.containsEncodedLF}) or whitespace! Authorization requests are blocked.`);
 } else if (initialOAuthConfig.configured) {
-  console.log(`⚡ [Google OAuth] Configured and validated: Client ID (${initialOAuthConfig.clientIdMasked}), Pattern: ${initialOAuthConfig.isValidFormat ? 'Valid Web Client' : 'Non-standard'}`);
+  console.log(`⚡ [Google OAuth Diagnostic] Client ID: ${initialOAuthConfig.clientIdMasked} | Length: ${initialOAuthConfig.rawLength} chars | CR/LF: NONE | Format: ${initialOAuthConfig.isValidFormat ? 'Valid Web Client' : 'Non-standard'}`);
 } else {
   console.log('ℹ️ [Google OAuth] Not configured (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set).');
 }
@@ -497,7 +575,7 @@ function publicUser(user) {
   return profile;
 }
 
-async function createSession(user, mode = 'login') {
+async function createSession(user, mode = 'login', request = null) {
   const sessionId = crypto.randomBytes(32).toString('hex');
   const sessionData = { role: user.role, mode, user: publicUser(user), createdAt: Date.now(), expiresAt: Date.now() + 86400000 };
   
@@ -508,8 +586,9 @@ async function createSession(user, mode = 'login') {
     await db.saveSessionToDb(sessionId, sessionData);
   }
 
-  const isProduction = process.env.NODE_ENV === 'production';
-  const secureFlag = isProduction ? '; Secure' : '';
+  const isProd = isProductionRequest(request);
+  const isHttps = request && (request.headers['x-forwarded-proto'] === 'https' || request.socket.encrypted);
+  const secureFlag = (isProd || isHttps) ? '; Secure' : '';
   return [`sehat_setu_session=${sessionId}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400${secureFlag}`, sessionId];
 }
 
@@ -578,9 +657,9 @@ function calculateOutbreakPredictions() {
 
 async function handleAuth(request, response, requestUrl) {
   const oauthConfig = getGoogleOAuthCredentials();
-  const proto = (request.headers['x-forwarded-proto'] || (request.socket.encrypted ? 'https' : 'http')).split(',')[0].trim();
-  const hostHeader = request.headers['x-forwarded-host'] || request.headers.host || `127.0.0.1:${port}`;
-  const googleRedirectUri = oauthConfig.redirectUri || `${proto}://${hostHeader}/auth/google/callback`;
+  const googleRedirectUri = getOAuthRedirectUri(request, oauthConfig);
+  const effectiveHost = getEffectiveHost(request);
+  const isProdEnv = isProductionRequest(request);
 
   // --------------------------------------------------------------------------
   // GOOGLE OAUTH DIAGNOSTIC STATUS (Safe Public Diagnostic Endpoint)
@@ -588,8 +667,14 @@ async function handleAuth(request, response, requestUrl) {
   if (requestUrl.pathname === '/api/auth/google/status' && request.method === 'GET') {
     sendJson(response, 200, {
       ready: Boolean(oauthConfig.configured && !oauthConfig.malformed && oauthConfig.isValidFormat),
+      environment: isProdEnv ? 'production' : 'development',
+      currentHost: effectiveHost,
       clientIdConfigured: Boolean(process.env.GOOGLE_CLIENT_ID),
+      clientIdLength: oauthConfig.rawLength || 0,
       clientIdMasked: oauthConfig.clientIdMasked || null,
+      containsCR: Boolean(oauthConfig.containsCR),
+      containsLF: Boolean(oauthConfig.containsLF),
+      containsEncodedLF: Boolean(oauthConfig.containsEncodedLF),
       clientIdHasNewline: Boolean(oauthConfig.hasNewline),
       clientIdHasWhitespace: Boolean(oauthConfig.hasWhitespace),
       clientIdValidFormat: Boolean(oauthConfig.isValidFormat),
@@ -597,7 +682,7 @@ async function handleAuth(request, response, requestUrl) {
       configuredRedirectUri: process.env.GOOGLE_REDIRECT_URI || null,
       effectiveRedirectUri: googleRedirectUri,
       statusMessage: oauthConfig.malformed
-        ? 'GOOGLE_CLIENT_ID contains invalid newline (%0A) or whitespace. Remove line breaks in Render Environment variables.'
+        ? 'GOOGLE_CLIENT_ID contains invalid newline (%0A/LF/CR) or whitespace. Remove line breaks in Render Environment variables.'
         : !oauthConfig.configured
           ? 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Render Environment variables.'
           : 'Google OAuth configuration is valid.'
@@ -1240,7 +1325,7 @@ async function handleAuth(request, response, requestUrl) {
         saveUsers();
         if (db.isSupabaseActive()) await db.insertUser(user);
       }
-      const [cookie] = await createSession(user, oauthState.mode);
+      const [cookie] = await createSession(user, oauthState.mode, request);
       redirect(response, `/index.html#/${user.role}/dashboard`, [cookie]);
     } catch (error) {
       console.error('Google OAuth error:', error.message);
@@ -1317,7 +1402,7 @@ async function handleAuth(request, response, requestUrl) {
           await db.insertUser(user);
         }
 
-        const [cookie] = await createSession(user, 'signup');
+        const [cookie] = await createSession(user, 'signup', request);
         response.setHeader('Set-Cookie', cookie);
         return sendJson(response, 201, { authenticated: true, role: user.role, mode: 'signup', user: publicUser(user) });
       }
@@ -1330,7 +1415,7 @@ async function handleAuth(request, response, requestUrl) {
       const user = await findUser(data.email);
       if (!user || !(await checkPassword(data.password || '', user.passwordHash || user.password_hash))) return sendJson(response, 401, { error: 'Invalid email or password.' });
       
-      const [cookie] = await createSession(user, 'login');
+      const [cookie] = await createSession(user, 'login', request);
       response.setHeader('Set-Cookie', cookie);
       return sendJson(response, 200, { authenticated: true, role: user.role, mode: 'login', user: publicUser(user) });
     } catch (error) {
@@ -1371,7 +1456,7 @@ async function handleAuth(request, response, requestUrl) {
         return sendJson(response, 401, { error: otpResult.error });
       }
       
-      const [cookie] = await createSession(user, 'otp');
+      const [cookie] = await createSession(user, 'otp', request);
       response.setHeader('Set-Cookie', cookie);
       return sendJson(response, 200, { authenticated: true, role: user.role, mode: 'otp', user: publicUser(user) });
     } catch (error) {
@@ -1398,7 +1483,17 @@ async function handleAuth(request, response, requestUrl) {
 }
 
 const server = http.createServer(async (request, response) => {
-  const requestUrl = new URL(request.url, `http://${request.headers.host || '127.0.0.1'}`);
+  // Prevent 0.0.0.0 browser deprecation warnings by canonicalizing 0.0.0.0 requests to localhost
+  const rawHost = (request.headers['x-forwarded-host'] || request.headers.host || '').split(':')[0].toLowerCase();
+  if (rawHost === '0.0.0.0' || rawHost === '::' || rawHost === '[::]') {
+    const cleanPort = (request.headers.host || '').split(':')[1] || port;
+    setSecurityHeaders(response);
+    response.writeHead(302, { Location: `http://localhost:${cleanPort}${request.url}` });
+    response.end();
+    return;
+  }
+
+  const requestUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
   if (await handleAuth(request, response, requestUrl)) return;
   let requestPath;
   try {
@@ -1445,19 +1540,36 @@ const server = http.createServer(async (request, response) => {
       return;
     }
 
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+    const isHtml = ext === '.html' || !ext;
+    const cacheControl = isHtml ? 'no-cache' : 'public, max-age=86400, stale-while-revalidate=3600';
+    const acceptEncoding = request.headers['accept-encoding'] || '';
+    const shouldCompress = /\b(text\/|application\/javascript|application\/json|image\/svg\+xml)/.test(contentType);
+
     setSecurityHeaders(response);
-    response.writeHead(200, {
-      'Content-Type': mimeTypes[path.extname(filePath).toLowerCase()] || 'application/octet-stream',
-      'Cache-Control': 'no-cache'
-    });
-    fs.createReadStream(filePath).pipe(response);
+
+    if (shouldCompress && /\bgzip\b/.test(acceptEncoding)) {
+      response.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': cacheControl,
+        'Content-Encoding': 'gzip'
+      });
+      fs.createReadStream(filePath).pipe(zlib.createGzip()).pipe(response);
+    } else {
+      response.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': cacheControl
+      });
+      fs.createReadStream(filePath).pipe(response);
+    }
   });
 });
 
 server.on('error', error => {
   if (error.code === 'EADDRINUSE') {
     const nextPort = Number(port) + 1;
-    console.warn(`⚠️ Port ${port} is currently in use. Automatically switching to http://0.0.0.0:${nextPort}...`);
+    console.warn(`⚠️ Port ${port} is currently in use. Automatically switching to http://localhost:${nextPort}...`);
     port = nextPort;
     setTimeout(() => {
       server.listen(port, '0.0.0.0');
@@ -1469,12 +1581,20 @@ server.on('error', error => {
 });
 
 server.listen(port, '0.0.0.0', () => {
-  console.log(`🚀 Sehat Setu is running at http://0.0.0.0:${port}`);
+  const isProd = process.env.RENDER === 'true' || process.env.NODE_ENV === 'production';
+  console.log('========================================================');
+  console.log('🚀 Sehat Setu Platform is running:');
+  console.log(`   ➜ Local Application:  http://localhost:${port}`);
+  if (isProd) {
+    console.log(`   ➜ Production Domain:  https://sehat-setu-tzn2.onrender.com`);
+  }
+  console.log(`   ➜ Network Interface:  0.0.0.0:${port} (bind address)`);
   if (db.isSupabaseActive()) {
     console.log('⚡ Database: Connected to Supabase PostgreSQL');
   } else {
     console.log('💾 Database: Running in local JSON mode (Set SUPABASE_URL and SUPABASE_KEY in .env to connect to cloud Supabase)');
   }
+  console.log('========================================================');
 });
 
 module.exports = { server, getPort: () => port };
