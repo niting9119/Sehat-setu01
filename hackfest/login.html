@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Login — Sehat Setu</title>
 
   <!-- Typography -->
@@ -168,6 +168,34 @@
       outline: none;
       border-color: var(--primary-600);
       box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.2);
+    }
+
+    @media (max-width: 480px) {
+      .minimal-auth-card {
+        margin: 1rem auto;
+        padding: 1.25rem 1rem;
+        border-radius: var(--radius-lg);
+      }
+      .role-select-bar {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.4rem;
+      }
+      .otp-input-group {
+        gap: 0.25rem;
+      }
+      .otp-box {
+        width: 38px;
+        height: 44px;
+        font-size: 1.15rem;
+      }
+    }
+
+    @media (max-width: 340px) {
+      .otp-box {
+        width: 32px;
+        height: 40px;
+        font-size: 1rem;
+      }
     }
 
     .divider-row {

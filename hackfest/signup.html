@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Sign Up — Sehat Setu</title>
 
   <!-- Typography -->
@@ -130,6 +130,18 @@
       flex: 1;
       height: 1px;
       background: var(--border-subtle);
+    }
+
+    @media (max-width: 480px) {
+      .minimal-signup-card {
+        margin: 1rem auto;
+        padding: 1.25rem 1rem;
+        border-radius: var(--radius-lg);
+      }
+      .role-select-bar {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.4rem;
+      }
     }
   </style>
 </head>

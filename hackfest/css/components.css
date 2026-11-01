@@ -780,3 +780,79 @@
   color: var(--text-muted);
   line-height: 1.35;
 }
+
+/* ==========================================================================
+   RESPONSIVE COMPONENT ADJUSTMENTS (Mobile & Tablet)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .modal-backdrop {
+    padding: 0.75rem;
+    align-items: flex-end;
+  }
+
+  .modal-container {
+    max-height: 86vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    margin: 0;
+    width: 100%;
+  }
+
+  .modal-header {
+    padding: 1rem 1.25rem;
+  }
+
+  .modal-body {
+    padding: 1.25rem;
+  }
+
+  .modal-footer {
+    padding: 0.85rem 1.25rem;
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+
+  .modal-footer .btn {
+    width: 100%;
+  }
+
+  .toast-container {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+  }
+
+  .toast {
+    min-width: unset;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .severity-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .system-flow-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .btn-lg {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
+  }
+
+  .form-control {
+    font-size: 16px; /* Prevents auto-zoom on iOS inputs */
+  }
+
+  .system-flow-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (pointer: coarse) {
+  .btn, .icon-btn, .role-pill-btn, .portal-nav-item, .mobile-nav-btn {
+    min-height: 44px; /* WCAG 2.1 AAA touch target accessibility */
+  }
+}

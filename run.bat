@@ -1,6 +1,6 @@
 @echo off
 echo =========================================================
-echo Starting Sehat Setu Platform (http://127.0.0.1:3000) ...
+echo Starting Sehat Setu Platform (http://localhost:3000) ...
 echo =========================================================
 start "Sehat Setu Web Server" cmd /c "npm start"
 if exist "hackfest\sehat_setu.exe" (

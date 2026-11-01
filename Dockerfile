@@ -6,6 +6,7 @@ WORKDIR /app
 # Set production environment
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV HOST=0.0.0.0
 
 # Copy package descriptors
 COPY package*.json ./

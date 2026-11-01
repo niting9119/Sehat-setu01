@@ -33,6 +33,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const https = require('node:https');
+const zlib = require('node:zlib');
 const { URL, URLSearchParams } = require('node:url');
 
 // --- 1. Load Local Environment Configuration ---
@@ -64,9 +65,141 @@ const uploadsDir = path.join(root, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 let port = Number(process.env.PORT) || 3000;
-const googleClientId = process.env.GOOGLE_CLIENT_ID;
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const configuredGoogleRedirectUri = process.env.GOOGLE_REDIRECT_URI;
+const host = '0.0.0.0';
+
+// --- Environment & Host Resolution Helpers ---
+function getEffectiveHost(request) {
+  const forwardedHost = request?.headers?.['x-forwarded-host'];
+  const hostHeader = request?.headers?.host;
+  let raw = (forwardedHost || hostHeader || `localhost:${port}`).trim();
+
+  // Normalize 0.0.0.0 and IPv6 wildcards to localhost for user-facing browser navigation
+  if (raw.startsWith('0.0.0.0') || raw.startsWith('::') || raw.startsWith('[::]')) {
+    const portPart = raw.split(':')[1] || port;
+    raw = `localhost:${portPart}`;
+  }
+  return raw;
+}
+
+function isLocalHost(request) {
+  const h = getEffectiveHost(request).split(':')[0].toLowerCase();
+  return h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0' || h === '::1';
+}
+
+function isProductionRequest(request) {
+  if (process.env.RENDER === 'true' || process.env.RENDER_EXTERNAL_HOSTNAME) return true;
+  const h = getEffectiveHost(request).toLowerCase();
+  if (h.includes('onrender.com')) return true;
+  return !isLocalHost(request);
+}
+
+function getEffectiveProtocol(request) {
+  const forwardedProto = request?.headers?.['x-forwarded-proto'];
+  if (forwardedProto) return forwardedProto.split(',')[0].trim();
+  if (request?.socket?.encrypted) return 'https';
+  if (isProductionRequest(request)) return 'https';
+  return 'http';
+}
+
+function getOAuthRedirectUri(request, oauthConfig) {
+  const isProd = isProductionRequest(request);
+  const configured = oauthConfig.redirectUri;
+
+  if (isProd) {
+    if (configured && configured.startsWith('https://') && !configured.includes('localhost') && !configured.includes('127.0.0.1') && !configured.includes('0.0.0.0')) {
+      return configured;
+    }
+    const reqHost = getEffectiveHost(request);
+    const prodHost = reqHost.includes('onrender.com') ? reqHost : (process.env.RENDER_EXTERNAL_HOSTNAME || process.env.APP_URL?.replace(/^https?:\/\//, '') || 'sehat-setu-tzn2.onrender.com');
+    return `https://${prodHost}/auth/google/callback`;
+  }
+
+  // Local development
+  const reqHost = getEffectiveHost(request);
+  if (configured) {
+    if (configured.includes('localhost') || configured.includes('127.0.0.1') || configured.includes('0.0.0.0')) {
+      if (reqHost.startsWith('127.0.0.1')) {
+        return configured.replace(/localhost|0\.0\.0\.0/, '127.0.0.1');
+      }
+      return configured.replace(/127\.0\.0\.1|0\.0\.0\.0/, 'localhost');
+    }
+  }
+
+  const proto = getEffectiveProtocol(request);
+  return `${proto}://${reqHost}/auth/google/callback`;
+}
+
+// --- Google OAuth Configuration & Diagnostic Validator ---
+function getGoogleOAuthCredentials() {
+  const rawId = process.env.GOOGLE_CLIENT_ID;
+  const rawSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const rawRedirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+  if (!rawId || !rawId.trim() || !rawSecret || !rawSecret.trim()) {
+    return {
+      configured: false,
+      malformed: false,
+      rawLength: rawId ? rawId.length : 0,
+      error: 'Google OAuth credentials missing. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in environment.'
+    };
+  }
+
+  // Safe character-level inspection for embedded CR/LF or whitespace
+  const containsCR = rawId.includes('\r');
+  const containsLF = rawId.includes('\n');
+  const containsEncodedLF = rawId.includes('%0A') || rawId.includes('%0a') || rawId.includes('%0D') || rawId.includes('%0d');
+  const hasNewline = containsCR || containsLF || containsEncodedLF;
+  const hasInternalWhitespace = /\s/.test(rawId.trim());
+  const rawLength = rawId.length;
+
+  if (hasNewline || hasInternalWhitespace) {
+    return {
+      configured: false,
+      malformed: true,
+      rawLength,
+      containsCR,
+      containsLF,
+      containsEncodedLF,
+      hasNewline,
+      hasWhitespace: hasInternalWhitespace,
+      error: 'GOOGLE_CLIENT_ID is malformed: contains embedded newline (%0A/LF/CR) or whitespace characters. Please update environment variables in your Render dashboard.'
+    };
+  }
+
+  const clientId = rawId.trim().replace(/^['"]|['"]$/g, '');
+  const clientSecret = rawSecret.trim().replace(/^['"]|['"]$/g, '');
+  const redirectUri = rawRedirectUri ? rawRedirectUri.trim().replace(/^['"]|['"]$/g, '') : null;
+
+  // Expected Google Web OAuth Client ID pattern: [numbers]-[hash].apps.googleusercontent.com
+  const isValidFormat = /^[0-9]+-[a-z0-9_]+\.apps\.googleusercontent\.com$/.test(clientId);
+
+  return {
+    configured: true,
+    malformed: false,
+    rawLength,
+    containsCR,
+    containsLF,
+    containsEncodedLF,
+    hasNewline: false,
+    hasWhitespace: false,
+    clientId,
+    clientSecret,
+    redirectUri,
+    isValidFormat,
+    clientIdMasked: clientId.length > 20 ? `${clientId.slice(0, 12)}...${clientId.slice(-16)}` : '[Configured]'
+  };
+}
+
+// Safe Diagnostic Logging on Server Startup (Never logs secrets)
+const initialOAuthConfig = getGoogleOAuthCredentials();
+if (initialOAuthConfig.malformed) {
+  console.error(`❌ [Google OAuth Diagnostic] CRITICAL: GOOGLE_CLIENT_ID (length: ${initialOAuthConfig.rawLength}) contains newline (CR: ${initialOAuthConfig.containsCR}, LF: ${initialOAuthConfig.containsLF}, %0A: ${initialOAuthConfig.containsEncodedLF}) or whitespace! Authorization requests are blocked.`);
+} else if (initialOAuthConfig.configured) {
+  console.log(`⚡ [Google OAuth Diagnostic] Client ID: ${initialOAuthConfig.clientIdMasked} | Length: ${initialOAuthConfig.rawLength} chars | CR/LF: NONE | Format: ${initialOAuthConfig.isValidFormat ? 'Valid Web Client' : 'Non-standard'}`);
+} else {
+  console.log('ℹ️ [Google OAuth] Not configured (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set).');
+}
+
 const oauthStates = new Map();
 const sessions = new Map();
 const usersFile = path.join(root, 'users.json');
@@ -101,6 +234,74 @@ function saveConsultations() {
 
 function saveReferrals() {
   fs.writeFileSync(referralsFile, JSON.stringify(referrals, null, 2));
+}
+
+const ashaTasksFile = path.join(root, 'asha_tasks.json');
+const defaultAshaTasks = [
+  {
+    id: 'task-1',
+    ashaId: 'ASHA-204',
+    familyId: 'FAM-10284',
+    headName: 'Rahul Sharma',
+    citizenId: 'C10291',
+    address: 'House #42, Sector 9, Zone C',
+    priority: 'High',
+    reason: 'Household cluster signal: 2 members reported symptoms in 7 days',
+    date: '24 Aug',
+    status: 'Scheduled',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'task-2',
+    ashaId: 'ASHA-204',
+    familyId: 'FAM-10310',
+    headName: 'Pooja Verma',
+    citizenId: 'C10304',
+    address: 'Block 4, Lane 2, Zone C',
+    priority: 'High',
+    reason: 'Severe acute febrile report needing vitals check & water source query',
+    date: '23 Aug',
+    status: 'Pending Verification',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'task-3',
+    ashaId: 'ASHA-204',
+    familyId: 'FAM-10332',
+    headName: 'Mohd. Imran',
+    citizenId: 'C10312',
+    address: 'House #12, Market St, Zone C',
+    priority: 'Medium',
+    reason: 'Gastrointestinal symptom follow-up & ORS kit delivery',
+    date: '25 Aug',
+    status: 'Scheduled',
+    createdAt: new Date().toISOString()
+  }
+];
+let ashaTasks = fs.existsSync(ashaTasksFile) ? JSON.parse(fs.readFileSync(ashaTasksFile, 'utf8')) : defaultAshaTasks;
+
+const householdVisitsFile = path.join(root, 'household_visits.json');
+let householdVisits = fs.existsSync(householdVisitsFile) ? JSON.parse(fs.readFileSync(householdVisitsFile, 'utf8')) : [];
+
+function saveAshaTasks() {
+  fs.writeFileSync(ashaTasksFile, JSON.stringify(ashaTasks, null, 2));
+}
+
+function saveHouseholdVisits() {
+  fs.writeFileSync(householdVisitsFile, JSON.stringify(householdVisits, null, 2));
+}
+
+// Initial Sync of ASHA Tasks to Supabase
+if (db.isSupabaseActive()) {
+  (async () => {
+    try {
+      for (const t of ashaTasks) {
+        await db.upsertAshaTask(t);
+      }
+    } catch (e) {
+      console.warn('⚠️ Supabase ASHA tasks sync notice:', e.message);
+    }
+  })();
 }
 
 // Connected SSE Realtime Clients for Live Push Notifications
@@ -374,7 +575,7 @@ function publicUser(user) {
   return profile;
 }
 
-async function createSession(user, mode = 'login') {
+async function createSession(user, mode = 'login', request = null) {
   const sessionId = crypto.randomBytes(32).toString('hex');
   const sessionData = { role: user.role, mode, user: publicUser(user), createdAt: Date.now(), expiresAt: Date.now() + 86400000 };
   
@@ -385,8 +586,9 @@ async function createSession(user, mode = 'login') {
     await db.saveSessionToDb(sessionId, sessionData);
   }
 
-  const isProduction = process.env.NODE_ENV === 'production';
-  const secureFlag = isProduction ? '; Secure' : '';
+  const isProd = isProductionRequest(request);
+  const isHttps = request && (request.headers['x-forwarded-proto'] === 'https' || request.socket.encrypted);
+  const secureFlag = (isProd || isHttps) ? '; Secure' : '';
   return [`sehat_setu_session=${sessionId}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400${secureFlag}`, sessionId];
 }
 
@@ -454,7 +656,39 @@ function calculateOutbreakPredictions() {
 }
 
 async function handleAuth(request, response, requestUrl) {
-  const googleRedirectUri = configuredGoogleRedirectUri || `http://127.0.0.1:${port}/auth/google/callback`;
+  const oauthConfig = getGoogleOAuthCredentials();
+  const googleRedirectUri = getOAuthRedirectUri(request, oauthConfig);
+  const effectiveHost = getEffectiveHost(request);
+  const isProdEnv = isProductionRequest(request);
+
+  // --------------------------------------------------------------------------
+  // GOOGLE OAUTH DIAGNOSTIC STATUS (Safe Public Diagnostic Endpoint)
+  // --------------------------------------------------------------------------
+  if (requestUrl.pathname === '/api/auth/google/status' && request.method === 'GET') {
+    sendJson(response, 200, {
+      ready: Boolean(oauthConfig.configured && !oauthConfig.malformed && oauthConfig.isValidFormat),
+      environment: isProdEnv ? 'production' : 'development',
+      currentHost: effectiveHost,
+      clientIdConfigured: Boolean(process.env.GOOGLE_CLIENT_ID),
+      clientIdLength: oauthConfig.rawLength || 0,
+      clientIdMasked: oauthConfig.clientIdMasked || null,
+      containsCR: Boolean(oauthConfig.containsCR),
+      containsLF: Boolean(oauthConfig.containsLF),
+      containsEncodedLF: Boolean(oauthConfig.containsEncodedLF),
+      clientIdHasNewline: Boolean(oauthConfig.hasNewline),
+      clientIdHasWhitespace: Boolean(oauthConfig.hasWhitespace),
+      clientIdValidFormat: Boolean(oauthConfig.isValidFormat),
+      clientSecretConfigured: Boolean(process.env.GOOGLE_CLIENT_SECRET),
+      configuredRedirectUri: process.env.GOOGLE_REDIRECT_URI || null,
+      effectiveRedirectUri: googleRedirectUri,
+      statusMessage: oauthConfig.malformed
+        ? 'GOOGLE_CLIENT_ID contains invalid newline (%0A/LF/CR) or whitespace. Remove line breaks in Render Environment variables.'
+        : !oauthConfig.configured
+          ? 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Render Environment variables.'
+          : 'Google OAuth configuration is valid.'
+    });
+    return true;
+  }
 
   // --------------------------------------------------------------------------
   // LOCATION API (Country -> State -> District -> Block)
@@ -810,6 +1044,160 @@ async function handleAuth(request, response, requestUrl) {
   }
 
   // --------------------------------------------------------------------------
+  // ASHA WORKER DASHBOARD: TASKS, VISITS & VERIFICATION APIS
+  // --------------------------------------------------------------------------
+  if (requestUrl.pathname === '/api/asha/tasks' && request.method === 'GET') {
+    const cookieHeader = parseCookies(request).sehat_setu_session;
+    const session = sessions.get(cookieHeader);
+    if (!session || !['asha', 'admin'].includes(session.role)) {
+      return sendJson(response, 403, { error: 'Access restricted to authorized ASHA workers and Administrators.' });
+    }
+    const filterStatus = requestUrl.searchParams.get('status');
+    let results = ashaTasks;
+    if (filterStatus === 'pending') results = results.filter(t => t.status !== 'Completed');
+    else if (filterStatus === 'completed') results = results.filter(t => t.status === 'Completed');
+    return sendJson(response, 200, { success: true, count: results.length, tasks: results });
+  }
+
+  if (requestUrl.pathname === '/api/asha/tasks/complete' && request.method === 'POST') {
+    try {
+      const cookieHeader = parseCookies(request).sehat_setu_session;
+      const session = sessions.get(cookieHeader);
+      if (!session) {
+        return sendJson(response, 401, { error: 'Authentication required.' });
+      }
+      if (!['asha', 'admin'].includes(session.role)) {
+        return sendJson(response, 403, { error: 'Only authorized ASHA workers or Administrators can complete household visits.' });
+      }
+
+      const data = await readBody(request);
+      if (!data.taskId) {
+        return sendJson(response, 400, { error: 'taskId is required.' });
+      }
+
+      const task = ashaTasks.find(t => t.id === data.taskId);
+      if (!task) {
+        return sendJson(response, 404, { error: `Task '${data.taskId}' not found.` });
+      }
+
+      // Idempotency: Prevent duplicate submissions
+      if (task.status === 'Completed') {
+        return sendJson(response, 200, {
+          success: true,
+          message: 'Task is already marked completed.',
+          task
+        });
+      }
+
+      const completedTimestamp = new Date().toISOString();
+      const findings = data.findings || data.observations || 'Routine household survey conducted. Hydration & vitals reviewed.';
+      task.status = 'Completed';
+      task.completedAt = completedTimestamp;
+      task.findings = findings;
+      task.completedBy = session.user.id;
+      task.completedByName = session.user.name;
+
+      saveAshaTasks();
+
+      // Cloud Database Sync
+      if (db.isSupabaseActive()) {
+        await db.updateAshaTaskStatus(task.id, 'Completed');
+      }
+
+      broadcastEvent('ASHA_TASK_COMPLETED', {
+        taskId: task.id,
+        task,
+        message: `Field visit for ${task.headName} (${task.familyId}) completed by ${session.user.name}.`
+      });
+
+      return sendJson(response, 200, { success: true, message: 'Household visit successfully completed.', task });
+    } catch (e) {
+      return sendJson(response, 500, { error: e.message });
+    }
+  }
+
+  if (requestUrl.pathname === '/api/asha/visits' && request.method === 'GET') {
+    return sendJson(response, 200, { success: true, count: householdVisits.length, visits: householdVisits });
+  }
+
+  if (requestUrl.pathname === '/api/asha/visits' && request.method === 'POST') {
+    try {
+      const cookieHeader = parseCookies(request).sehat_setu_session;
+      const session = sessions.get(cookieHeader);
+      if (!session || !['asha', 'admin'].includes(session.role)) {
+        return sendJson(response, 403, { error: 'Only authorized ASHA workers or Administrators can log visits.' });
+      }
+
+      const data = await readBody(request);
+      const visit = {
+        id: data.id || `VIS-${Date.now()}`,
+        citizenId: data.citizenId || 'C10291',
+        citizenName: data.citizenName || 'Patient',
+        familyId: data.familyId || 'FAM-10284',
+        ashaId: session.user.id || 'ASHA-204',
+        ashaName: session.user.name || 'Sunita Devi',
+        date: data.date || new Date().toISOString(),
+        vitals: data.vitals || { bp: '120/80', pulse: '76', temp: '98.6°F', spo2: '99%' },
+        symptoms: data.symptoms || [],
+        observations: data.observations || 'Routine household checkup.',
+        actionTaken: data.actionTaken || 'Provided health advisory.',
+        monitoringStatus: data.monitoringStatus || 'Routine Monitoring',
+        status: 'Completed',
+        createdAt: new Date().toISOString()
+      };
+
+      householdVisits.unshift(visit);
+      saveHouseholdVisits();
+
+      broadcastEvent('NEW_HOUSEHOLD_VISIT', {
+        visit,
+        message: `New household visit recorded for ${visit.citizenName} (${visit.familyId})`
+      });
+
+      return sendJson(response, 201, { success: true, visit });
+    } catch (e) {
+      return sendJson(response, 400, { error: e.message });
+    }
+  }
+
+  if (requestUrl.pathname === '/api/asha/verify' && request.method === 'POST') {
+    try {
+      const cookieHeader = parseCookies(request).sehat_setu_session;
+      const session = sessions.get(cookieHeader);
+      if (!session || !['asha', 'admin'].includes(session.role)) {
+        return sendJson(response, 403, { error: 'Only authorized ASHA workers or Administrators can submit field verifications.' });
+      }
+
+      const data = await readBody(request);
+      const verification = {
+        zoneId: data.zoneId || 'Zone C',
+        outcome: data.outcome || 'Signal Verified',
+        fieldNotes: data.fieldNotes || '',
+        followUpStatus: data.followUpStatus || 'High Priority Sanitation Check',
+        verifiedBy: session.user.id,
+        verifiedByName: session.user.name,
+        verifiedAt: new Date().toISOString()
+      };
+
+      broadcastEvent('ASHA_VERIFICATION_SUBMITTED', {
+        verification,
+        message: `ASHA ${session.user.name} submitted field verification for ${verification.zoneId}. Outcome: ${verification.outcome}.`
+      });
+
+      const zoneStatus = verification.outcome === 'Signal Verified' ? 'Signal Verified by ASHA' : 'Verification Completed (' + verification.outcome + ')';
+      return sendJson(response, 200, { success: true, verification, zoneStatus });
+    } catch (e) {
+      return sendJson(response, 400, { error: e.message });
+    }
+  }
+
+  if (requestUrl.pathname === '/api/asha/citizens' && request.method === 'GET') {
+    const ashaZone = requestUrl.searchParams.get('zone') || 'Zone C';
+    const zoneCitizens = users.filter(u => u.role === 'citizen' && (u.zone === ashaZone || !u.zone || ashaZone === 'all')).map(publicUser);
+    return sendJson(response, 200, { success: true, count: zoneCitizens.length, citizens: zoneCitizens });
+  }
+
+  // --------------------------------------------------------------------------
   // AI OUTBREAK CLUSTER PREDICTION ENGINE
   // --------------------------------------------------------------------------
   if (requestUrl.pathname === '/api/ai/outbreak-prediction') {
@@ -846,16 +1234,25 @@ async function handleAuth(request, response, requestUrl) {
   }
 
   if (requestUrl.pathname === '/auth/google') {
-    if (!googleClientId || !googleClientSecret) {
-      sendJson(response, 503, { error: 'Google OAuth is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env.' });
+    if (!oauthConfig.configured) {
+      if (oauthConfig.malformed) {
+        console.error('🚨 [Google OAuth Error] Initiation blocked: GOOGLE_CLIENT_ID contains newline (%0A) or whitespace characters.');
+        const errMsg = encodeURIComponent('Google OAuth Error: GOOGLE_CLIENT_ID contains an invalid line-break or whitespace character in Render settings. Please update your environment variables.');
+        redirect(response, `/login.html?authError=${errMsg}`);
+        return true;
+      }
+      sendJson(response, 503, { error: 'Google OAuth is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to environment variables.' });
       return true;
     }
+
+    console.log(`ℹ️ [Google OAuth] Initiating flow with Client ID (${oauthConfig.clientIdMasked}) and Redirect URI: ${googleRedirectUri}`);
+
     const role = ['citizen', 'doctor', 'asha', 'admin'].includes(requestUrl.searchParams.get('role')) ? requestUrl.searchParams.get('role') : 'citizen';
     const mode = requestUrl.searchParams.get('mode') === 'signup' ? 'signup' : 'login';
     const state = crypto.randomBytes(32).toString('hex');
     oauthStates.set(state, { role, mode, expiresAt: Date.now() + 10 * 60 * 1000 });
     const params = new URLSearchParams({
-      client_id: googleClientId,
+      client_id: oauthConfig.clientId,
       redirect_uri: googleRedirectUri,
       response_type: 'code',
       scope: 'openid email profile',
@@ -874,11 +1271,15 @@ async function handleAuth(request, response, requestUrl) {
       redirect(response, '/login.html?authError=google_cancelled');
       return true;
     }
+    if (!oauthConfig.configured) {
+      redirect(response, '/login.html?authError=google_oauth_misconfigured');
+      return true;
+    }
     try {
       const tokenBody = new URLSearchParams({
         code: requestUrl.searchParams.get('code'),
-        client_id: googleClientId,
-        client_secret: googleClientSecret,
+        client_id: oauthConfig.clientId,
+        client_secret: oauthConfig.clientSecret,
         redirect_uri: googleRedirectUri,
         grant_type: 'authorization_code'
       }).toString();
@@ -924,7 +1325,7 @@ async function handleAuth(request, response, requestUrl) {
         saveUsers();
         if (db.isSupabaseActive()) await db.insertUser(user);
       }
-      const [cookie] = await createSession(user, oauthState.mode);
+      const [cookie] = await createSession(user, oauthState.mode, request);
       redirect(response, `/index.html#/${user.role}/dashboard`, [cookie]);
     } catch (error) {
       console.error('Google OAuth error:', error.message);
@@ -1001,7 +1402,7 @@ async function handleAuth(request, response, requestUrl) {
           await db.insertUser(user);
         }
 
-        const [cookie] = await createSession(user, 'signup');
+        const [cookie] = await createSession(user, 'signup', request);
         response.setHeader('Set-Cookie', cookie);
         return sendJson(response, 201, { authenticated: true, role: user.role, mode: 'signup', user: publicUser(user) });
       }
@@ -1014,7 +1415,7 @@ async function handleAuth(request, response, requestUrl) {
       const user = await findUser(data.email);
       if (!user || !(await checkPassword(data.password || '', user.passwordHash || user.password_hash))) return sendJson(response, 401, { error: 'Invalid email or password.' });
       
-      const [cookie] = await createSession(user, 'login');
+      const [cookie] = await createSession(user, 'login', request);
       response.setHeader('Set-Cookie', cookie);
       return sendJson(response, 200, { authenticated: true, role: user.role, mode: 'login', user: publicUser(user) });
     } catch (error) {
@@ -1055,7 +1456,7 @@ async function handleAuth(request, response, requestUrl) {
         return sendJson(response, 401, { error: otpResult.error });
       }
       
-      const [cookie] = await createSession(user, 'otp');
+      const [cookie] = await createSession(user, 'otp', request);
       response.setHeader('Set-Cookie', cookie);
       return sendJson(response, 200, { authenticated: true, role: user.role, mode: 'otp', user: publicUser(user) });
     } catch (error) {
@@ -1063,12 +1464,16 @@ async function handleAuth(request, response, requestUrl) {
     }
   }
 
-  if (requestUrl.pathname === '/auth/logout') {
+  if (requestUrl.pathname === '/auth/logout' || requestUrl.pathname === '/api/auth/logout') {
     const cookieHeader = parseCookies(request).sehat_setu_session;
     sessions.delete(cookieHeader);
     saveSessions();
     if (cookieHeader && db.isSupabaseActive()) {
       await db.deleteSessionFromDb(cookieHeader);
+    }
+    if (requestUrl.pathname === '/api/auth/logout') {
+      response.setHeader('Set-Cookie', 'sehat_setu_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
+      return sendJson(response, 200, { success: true, message: 'Logged out successfully' });
     }
     redirect(response, '/login.html', ['sehat_setu_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0']);
     return true;
@@ -1078,7 +1483,17 @@ async function handleAuth(request, response, requestUrl) {
 }
 
 const server = http.createServer(async (request, response) => {
-  const requestUrl = new URL(request.url, `http://${request.headers.host || '127.0.0.1'}`);
+  // Prevent 0.0.0.0 browser deprecation warnings by canonicalizing 0.0.0.0 requests to localhost
+  const rawHost = (request.headers['x-forwarded-host'] || request.headers.host || '').split(':')[0].toLowerCase();
+  if (rawHost === '0.0.0.0' || rawHost === '::' || rawHost === '[::]') {
+    const cleanPort = (request.headers.host || '').split(':')[1] || port;
+    setSecurityHeaders(response);
+    response.writeHead(302, { Location: `http://localhost:${cleanPort}${request.url}` });
+    response.end();
+    return;
+  }
+
+  const requestUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
   if (await handleAuth(request, response, requestUrl)) return;
   let requestPath;
   try {
@@ -1125,33 +1540,61 @@ const server = http.createServer(async (request, response) => {
       return;
     }
 
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+    const isHtml = ext === '.html' || !ext;
+    const cacheControl = isHtml ? 'no-cache' : 'public, max-age=86400, stale-while-revalidate=3600';
+    const acceptEncoding = request.headers['accept-encoding'] || '';
+    const shouldCompress = /\b(text\/|application\/javascript|application\/json|image\/svg\+xml)/.test(contentType);
+
     setSecurityHeaders(response);
-    response.writeHead(200, {
-      'Content-Type': mimeTypes[path.extname(filePath).toLowerCase()] || 'application/octet-stream',
-      'Cache-Control': 'no-cache'
-    });
-    fs.createReadStream(filePath).pipe(response);
+
+    if (shouldCompress && /\bgzip\b/.test(acceptEncoding)) {
+      response.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': cacheControl,
+        'Content-Encoding': 'gzip'
+      });
+      fs.createReadStream(filePath).pipe(zlib.createGzip()).pipe(response);
+    } else {
+      response.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': cacheControl
+      });
+      fs.createReadStream(filePath).pipe(response);
+    }
   });
 });
 
 server.on('error', error => {
   if (error.code === 'EADDRINUSE') {
     const nextPort = Number(port) + 1;
-    console.warn(`⚠️ Port ${port} is currently in use. Automatically switching to http://127.0.0.1:${nextPort}...`);
+    console.warn(`⚠️ Port ${port} is currently in use. Automatically switching to http://localhost:${nextPort}...`);
     port = nextPort;
     setTimeout(() => {
-      server.listen(port, '127.0.0.1');
+      server.listen(port, '0.0.0.0');
     }, 250);
     return;
   }
+  console.error(`❌ Server failed to bind to 0.0.0.0:${port}:`, error.message);
   throw error;
 });
 
-server.listen(port, '127.0.0.1', () => {
-  console.log(`Sehat Setu is running at http://127.0.0.1:${port}`);
+server.listen(port, '0.0.0.0', () => {
+  const isProd = process.env.RENDER === 'true' || process.env.NODE_ENV === 'production';
+  console.log('========================================================');
+  console.log('🚀 Sehat Setu Platform is running:');
+  console.log(`   ➜ Local Application:  http://localhost:${port}`);
+  if (isProd) {
+    console.log(`   ➜ Production Domain:  https://sehat-setu-tzn2.onrender.com`);
+  }
+  console.log(`   ➜ Network Interface:  0.0.0.0:${port} (bind address)`);
   if (db.isSupabaseActive()) {
     console.log('⚡ Database: Connected to Supabase PostgreSQL');
   } else {
     console.log('💾 Database: Running in local JSON mode (Set SUPABASE_URL and SUPABASE_KEY in .env to connect to cloud Supabase)');
   }
+  console.log('========================================================');
 });
+
+module.exports = { server, getPort: () => port };

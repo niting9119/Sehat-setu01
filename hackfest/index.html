@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Sehat Setu — Smart Community Health Monitoring & Early Warning System</title>
 
   <!-- Typography (Archivo + Inter + IBM Plex Mono) -->
@@ -79,12 +79,48 @@
         <!-- Header Actions (Auth, Profile & Theme) -->
         <div class="header-actions">
           <div id="header-auth-container" style="display: flex; align-items: center; gap: 0.5rem;"></div>
-          <button class="icon-btn" title="Toggle Light/Dark Theme" onclick="window.SehatState.toggleTheme()">
+          <button class="icon-btn" title="Toggle Light/Dark Theme" onclick="window.SehatState.toggleTheme()" aria-label="Toggle theme">
             🌓
+          </button>
+          <button class="icon-btn mobile-menu-toggle" id="mobile-menu-btn" title="Navigation Menu" onclick="window.SehatUI.toggleMobileMenu()" aria-label="Open navigation menu">
+            ☰
           </button>
         </div>
       </div>
     </header>
+
+    <!-- Mobile Navigation Drawer -->
+    <div id="mobile-nav-drawer" class="mobile-nav-drawer" role="dialog" aria-modal="true" aria-label="Mobile Navigation Menu">
+      <div class="mobile-nav-overlay" onclick="window.SehatUI.closeMobileMenu()"></div>
+      <div class="mobile-nav-panel">
+        <div class="mobile-nav-header">
+          <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 800; font-family: var(--font-display);">
+            <span>🏥 Sehat Setu Menu</span>
+          </div>
+          <button class="icon-btn" onclick="window.SehatUI.closeMobileMenu()" aria-label="Close menu">✕</button>
+        </div>
+        <div class="mobile-nav-body">
+          <div class="mobile-nav-section-title">Select Portal Role</div>
+          <div class="mobile-nav-roles">
+            <button class="mobile-nav-btn" data-role="landing" onclick="window.SehatState.setRole('landing'); window.SehatUI.closeMobileMenu();">
+              🏠 Overview &amp; Landing
+            </button>
+            <button class="mobile-nav-btn" data-role="citizen" onclick="window.SehatState.setRole('citizen'); window.SehatUI.closeMobileMenu();">
+              👤 Citizen Portal
+            </button>
+            <button class="mobile-nav-btn" data-role="doctor" onclick="window.SehatState.setRole('doctor'); window.SehatUI.closeMobileMenu();">
+              🩺 Doctor Portal
+            </button>
+            <button class="mobile-nav-btn" data-role="asha" onclick="window.SehatState.setRole('asha'); window.SehatUI.closeMobileMenu();">
+              👩‍⚕️ ASHA Worker Portal
+            </button>
+            <button class="mobile-nav-btn" data-role="admin" onclick="window.SehatState.setRole('admin'); window.SehatUI.closeMobileMenu();">
+              🏛️ Authority / Admin
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Main Dynamic View Container -->
     <main id="app-main" class="app-main">

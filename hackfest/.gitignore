@@ -3,4 +3,6 @@ sessions.json
 reports.json
 consultations.json
 referrals.json
+asha_tasks.json
+household_visits.json
 *.log
