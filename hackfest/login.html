@@ -362,13 +362,13 @@
       </div>
 
       <!-- METHOD 1: Password Form -->
-      <form id="password-login-form">
+      <form id="password-login-form" autocomplete="off">
         <input type="hidden" id="login-role" value="citizen">
 
         <div class="form-group">
           <label class="form-label" id="id-label" for="login-id">Registered Email Address / ID *</label>
           <input type="text" id="login-id" class="form-control" placeholder="e.g. rahul.sharma@example.com"
-            value="rahul.sharma@example.com" required>
+            autocomplete="off" required>
         </div>
 
         <div class="form-group">
@@ -376,7 +376,7 @@
             <span><label for="login-pass">Password *</label></span>
             <button type="button" onclick="togglePassword()" style="font-size: 0.75rem;">Show/Hide</button>
           </div>
-          <input type="password" id="login-pass" class="form-control" value="password123" required>
+          <input type="password" id="login-pass" class="form-control" autocomplete="new-password" required>
         </div>
 
         <button type="submit" class="btn btn-primary btn-block" style="padding: 0.75rem; margin-top: 0.85rem;"
@@ -386,12 +386,12 @@
       </form>
 
       <!-- METHOD 2: OTP Form -->
-      <form id="otp-login-form" style="display: none;">
+      <form id="otp-login-form" autocomplete="off" style="display: none;">
         <div class="form-group">
           <label class="form-label" for="otp-mobile-input">Registered Email / Mobile *</label>
           <div style="display: flex; gap: 0.5rem;">
             <input type="text" id="otp-mobile-input" class="form-control" placeholder="e.g. rahul.sharma@example.com"
-              value="rahul.sharma@example.com" required>
+              autocomplete="off" required>
             <button type="button" class="btn btn-secondary" style="white-space: nowrap; font-size: 0.8rem;"
               onclick="triggerOTP()">Send OTP</button>
           </div>
@@ -403,12 +403,12 @@
             <span id="otp-hint-badge" style="font-size: 0.75rem; color: var(--accent-emerald);"></span>
           </label>
           <div class="otp-input-group">
-            <input id="otp-1" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" required autofocus>
-            <input id="otp-2" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" required>
-            <input id="otp-3" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" required>
-            <input id="otp-4" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" required>
-            <input id="otp-5" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" required>
-            <input id="otp-6" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" required>
+            <input id="otp-1" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" autocomplete="off" required>
+            <input id="otp-2" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" autocomplete="off" required>
+            <input id="otp-3" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" autocomplete="off" required>
+            <input id="otp-4" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" autocomplete="off" required>
+            <input id="otp-5" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" autocomplete="off" required>
+            <input id="otp-6" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" class="otp-box" autocomplete="off" required>
           </div>
 
           <button type="submit" class="btn btn-primary btn-block" style="padding: 0.75rem; margin-top: 0.65rem;">
@@ -419,14 +419,6 @@
 
       <div style="text-align: center; margin-top: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
         Don't have an account? <a href="signup.html" style="font-weight: 700; color: var(--primary-600);">Sign Up</a>
-      </div>
-
-      <!-- Statutory Medical Disclaimer -->
-      <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; padding: 0.65rem 0.85rem; margin-top: 1.25rem; display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.725rem; color: var(--text-muted); line-height: 1.45;">
-        <span style="font-size: 1rem; flex-shrink: 0; line-height: 1;">⚠️</span>
-        <div>
-          <strong style="color: var(--text-main);">Statutory Disclaimer:</strong> Sehat Setu is an epidemiological decision-support & surveillance prototype, not a certified clinical diagnostic tool. In medical emergencies, consult a certified physician or dial 108.
-        </div>
       </div>
     </div>
   </main>
@@ -458,19 +450,15 @@
       if (role === 'citizen') {
         idLabel.textContent = 'Registered Email Address / ID *';
         idInput.placeholder = 'e.g. rahul.sharma@example.com or C10291';
-        idInput.value = 'rahul.sharma@example.com';
       } else if (role === 'doctor') {
         idLabel.textContent = 'Doctor Email / Reg. Number *';
         idInput.placeholder = 'e.g. dr.arishta@health.gov.in or DR-1004';
-        idInput.value = 'dr.arishta@health.gov.in';
       } else if (role === 'asha') {
         idLabel.textContent = 'ASHA Email / Badge ID *';
         idInput.placeholder = 'e.g. sunita.asha@health.gov.in or ASHA-204';
-        idInput.value = 'sunita.asha@health.gov.in';
       } else if (role === 'admin') {
         idLabel.textContent = 'Official Gov Email / Admin ID *';
         idInput.placeholder = 'e.g. director.idsp@nic.in or ADMIN-001';
-        idInput.value = 'director.idsp@nic.in';
       }
     }
 
@@ -490,12 +478,15 @@
         tabPass.classList.remove('active');
         otpForm.style.display = 'block';
         passForm.style.display = 'none';
-        triggerOTP();
       }
     }
 
     function triggerOTP() {
       const identifier = document.getElementById('otp-mobile-input').value.trim();
+      if (!identifier) {
+        window.SehatUI.showToast('Input Required', 'Please enter your registered email or mobile number first.', 'info');
+        return;
+      }
       fetch('/api/auth/otp/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier }) })
         .then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.error); return data; })
         .then((data) => {
@@ -598,8 +589,27 @@
         .catch(error => window.SehatUI.showToast('Login Failed', error.message, 'warning'));
     });
 
+    function clearLoginFields() {
+      const passForm = document.getElementById('password-login-form');
+      if (passForm) passForm.reset();
+      const otpForm = document.getElementById('otp-login-form');
+      if (otpForm) otpForm.reset();
+
+      const loginId = document.getElementById('login-id');
+      if (loginId) loginId.value = '';
+      const loginPass = document.getElementById('login-pass');
+      if (loginPass) loginPass.value = '';
+      const otpInput = document.getElementById('otp-mobile-input');
+      if (otpInput) otpInput.value = '';
+      document.querySelectorAll('.otp-box').forEach(box => { box.value = ''; });
+      document.querySelectorAll('select').forEach(sel => { sel.value = ''; });
+    }
+
     // Check URL parameters for authentication alerts
     window.addEventListener('DOMContentLoaded', () => {
+      clearLoginFields();
+      setTimeout(clearLoginFields, 50);
+      setTimeout(clearLoginFields, 150);
       const urlParams = new URLSearchParams(window.location.search);
       const authErr = urlParams.get('authError');
       if (authErr === 'role_missing' || authErr === 'role_invalid') {
@@ -610,6 +620,8 @@
         window.SehatUI.showToast('Authentication Notice', decodeURIComponent(authErr), 'warning');
       }
     });
+
+    window.addEventListener('pageshow', clearLoginFields);
   </script>
 </body>
 

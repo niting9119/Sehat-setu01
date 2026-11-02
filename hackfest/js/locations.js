@@ -148,7 +148,7 @@
     /**
      * Initializes interactive dependent dropdowns: State -> District -> Block
      */
-    async bindLocationDropdowns({ stateSelectId, districtSelectId, blockSelectId, onBlockChange = null, initial = {} }) {
+    async bindLocationDropdowns({ stateSelectId, districtSelectId, blockSelectId, onBlockChange = null, initial = {}, placeholder = 'Select' }) {
       await this.loadData();
       const stateSelect = document.getElementById(stateSelectId);
       const districtSelect = document.getElementById(districtSelectId);
@@ -158,14 +158,15 @@
 
       // 1. Populate States
       const states = this.getStates();
-      stateSelect.innerHTML = '<option value="">-- Select State / UT --</option>' +
+      const statePlaceholder = placeholder || 'Select';
+      stateSelect.innerHTML = `<option value="" disabled ${!initial.state ? 'selected' : ''}>${statePlaceholder}</option>` +
         states.map(s => `<option value="${s.name}" ${initial.state && initial.state.toLowerCase() === s.name.toLowerCase() ? 'selected' : ''}>${s.name}</option>`).join('');
 
       // Helper: Populate Districts
       const populateDistricts = (selectedState, selectedDistrict = null) => {
         if (!districtSelect) return;
         if (!selectedState) {
-          districtSelect.innerHTML = '<option value="">-- Select District (Select State first) --</option>';
+          districtSelect.innerHTML = `<option value="" disabled selected>${placeholder || 'Select'}</option>`;
           districtSelect.disabled = true;
           populateBlocks(null, null);
           return;
@@ -173,7 +174,7 @@
 
         const districts = this.getDistricts(selectedState);
         districtSelect.disabled = false;
-        districtSelect.innerHTML = '<option value="">-- Select District --</option>' +
+        districtSelect.innerHTML = `<option value="" disabled ${!selectedDistrict ? 'selected' : ''}>${placeholder || 'Select'}</option>` +
           districts.map(d => `<option value="${d.name}" ${selectedDistrict && selectedDistrict.toLowerCase() === d.name.toLowerCase() ? 'selected' : ''}>${d.name}</option>`).join('');
 
         if (selectedDistrict) {
@@ -187,7 +188,7 @@
       const populateBlocks = (selectedState, selectedDistrict, selectedBlock = null) => {
         if (!blockSelect) return;
         if (!selectedDistrict) {
-          blockSelect.innerHTML = '<option value="">-- Select Block (Select District first) --</option>';
+          blockSelect.innerHTML = `<option value="" disabled selected>${placeholder || 'Select'}</option>`;
           blockSelect.disabled = true;
           if (onBlockChange) onBlockChange(selectedState, selectedDistrict, null);
           return;
@@ -195,11 +196,11 @@
 
         const blocks = this.getBlocks(selectedState, selectedDistrict);
         blockSelect.disabled = false;
-        blockSelect.innerHTML = '<option value="">-- Select Block / Sub-District --</option>' +
+        blockSelect.innerHTML = `<option value="" disabled ${!selectedBlock ? 'selected' : ''}>${placeholder || 'Select'}</option>` +
           blocks.map(b => `<option value="${b.name}" ${selectedBlock && selectedBlock.toLowerCase() === b.name.toLowerCase() ? 'selected' : ''}>${b.name}</option>`).join('');
 
         if (onBlockChange) {
-          onBlockChange(selectedState, selectedDistrict, selectedBlock || (blocks[0] ? blocks[0].name : null));
+          onBlockChange(selectedState, selectedDistrict, selectedBlock || null);
         }
       };
 
