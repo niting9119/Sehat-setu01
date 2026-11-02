@@ -1485,20 +1485,8 @@ window.SehatApp = {
             <div class="portal-nav-item ${currentPath === '/doctor/dashboard' ? 'active' : ''}" onclick="window.SehatRouter.navigate('/doctor/dashboard')">
               <span>📊</span> Dashboard
             </div>
-            <div class="portal-nav-item ${currentPath === '/doctor/patients' ? 'active' : ''}" onclick="window.SehatRouter.navigate('/doctor/patients')">
-              <span>👥</span> Patients
-            </div>
-            <div class="portal-nav-item ${currentPath.includes('/doctor/register-patient') ? 'active' : ''}" onclick="window.SehatRouter.navigate('/doctor/register-patient')">
-              <span>➕</span> Register Patient
-            </div>
-            <div class="portal-nav-item ${currentPath.includes('/doctor/referrals') ? 'active' : ''}" onclick="window.SehatRouter.navigate('/doctor/referrals')">
-              <span>🏥</span> Referrals
-            </div>
-            <div class="portal-nav-item ${currentPath === '/doctor/consultations' ? 'active' : ''}" onclick="window.SehatRouter.navigate('/doctor/consultations')">
+            <div class="portal-nav-item ${currentPath === '/doctor/consultations' || currentPath.startsWith('/doctor/consultations/') ? 'active' : ''}" onclick="window.SehatRouter.navigate('/doctor/consultations')">
               <span>🩺</span> Consultations
-            </div>
-            <div class="portal-nav-item ${currentPath.includes('/doctor/medical-records') || currentPath.includes('/doctor/records') ? 'active' : ''}" onclick="window.SehatRouter.navigate('/doctor/medical-records')">
-              <span>📋</span> Medical Records
             </div>
             <div class="portal-nav-item ${currentPath === '/doctor/performance' ? 'active' : ''}" onclick="window.SehatRouter.navigate('/doctor/performance')">
               <span>📈</span> Performance
@@ -1506,8 +1494,8 @@ window.SehatApp = {
             <div class="portal-nav-item ${currentPath === '/doctor/reviews' ? 'active' : ''}" onclick="window.SehatRouter.navigate('/doctor/reviews')">
               <span>⭐</span> Reviews
             </div>
-            <div class="portal-nav-item ${currentPath.includes('/doctor/notifications') ? 'active' : ''}" onclick="window.SehatRouter.navigate('/doctor/notifications')">
-              <span>🔔</span> Notifications ${unreadNotifs > 0 ? `<span class="badge badge-high" style="font-size: 0.65rem; margin-left: auto;">${unreadNotifs}</span>` : ''}
+            <div class="portal-nav-item ${currentPath.includes('/doctor/referrals') ? 'active' : ''}" onclick="window.SehatRouter.navigate('/doctor/referrals')">
+              <span>🏥</span> Referrals
             </div>
             <div class="portal-nav-item ${currentPath.includes('/doctor/profile') ? 'active' : ''}" onclick="window.SehatRouter.navigate('/doctor/profile')">
               <span>👤</span> Profile
@@ -1726,7 +1714,7 @@ window.SehatApp = {
               <p>Authorized Clinical Dossier & Complete Medical Records History</p>
             </div>
             <div style="display: flex; gap: 0.5rem;">
-              <button class="btn btn-outline" onclick="window.SehatRouter.navigate('/doctor/patients')">← Back to Queue</button>
+              <button class="btn btn-outline" onclick="window.SehatRouter.navigate('/doctor/dashboard')">← Back to Queue</button>
               <button class="btn btn-primary" onclick="window.SehatRouter.navigate('/doctor/consultation/new/${citizen.id || citizenId}')">
                 🩺 Start New Consultation
               </button>
