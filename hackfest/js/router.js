@@ -98,7 +98,7 @@ class SehatRouter {
     }
 
     this.currentRoute = path;
-    const mergedParams = { ...(params || {}) };
+    const mergedParams = { subView, ...(params || {}) };
     if (queryPart) {
       const searchParams = new URLSearchParams(queryPart);
       for (const [key, val] of searchParams.entries()) {
@@ -106,6 +106,7 @@ class SehatRouter {
       }
     }
     this.currentParams = mergedParams;
+    this.currentSubView = subView;
 
     // 3. Synchronize State Store (Role, Tab and SubView)
     window.SehatState.state.currentRole = role;

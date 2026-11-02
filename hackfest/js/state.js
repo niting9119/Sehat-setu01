@@ -455,15 +455,9 @@ const INITIAL_STATE = {
       notes: 'Advised strict intake of boiled water. Avoid roadside unhygienic foods. Immediate review if vomiting persists.',
       outcome: 'Improved', // 'Improved' | 'Resolved' | 'Follow-up Required' | 'Referred' | 'Ongoing'
       attachments: {
-        photos: [
-          { id: 'att-p1', name: 'clinical_hydration_eval.jpg', size: '1.2 MB', url: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=600&auto=format&fit=crop&q=80', type: 'image' }
-        ],
-        pdfs: [
-          { id: 'att-d1', name: 'cbc_widal_panel_lab.pdf', size: '340 KB', url: 'https://images.unsplash.com/photo-1579154204601-01588f351e67?w=600&auto=format&fit=crop&q=80', type: 'pdf' }
-        ],
-        videos: [
-          { id: 'att-v1', name: 'teleconsult_vitals_review.mp4', size: '4.2 MB', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', type: 'video' }
-        ]
+        photos: [],
+        pdfs: [],
+        videos: []
       },
       rating: {
         stars: 5,
@@ -502,7 +496,7 @@ const INITIAL_STATE = {
       outcome: 'Resolved',
       attachments: {
         photos: [],
-        pdfs: [{ id: 'att-d2', name: 'prescription_slip.pdf', size: '180 KB', url: 'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=600&auto=format&fit=crop&q=80', type: 'pdf' }],
+        pdfs: [],
         videos: []
       },
       rating: {
@@ -887,13 +881,50 @@ class StateStore {
   constructor() {
     this.state = this.loadState();
     this.listeners = [];
+    this.syncConsultationsFromServer();
+  }
+
+  async syncConsultationsFromServer() {
+    if (typeof fetch === 'undefined') return;
+    try {
+      const resp = await fetch('/api/consultations');
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.consultations && Array.isArray(data.consultations) && data.consultations.length > 0) {
+          const map = new Map();
+          (this.state.consultations || []).forEach(c => map.set(c.id, c));
+          data.consultations.forEach(c => {
+            if (!map.has(c.id)) {
+              map.set(c.id, c);
+            }
+          });
+          this.state.consultations = Array.from(map.values());
+          this.saveState();
+          this.notify('CONSULTATIONS_LOADED', { consultations: this.state.consultations });
+        }
+      }
+    } catch (e) {
+      // Offline fallback: state loaded from localStorage
+    }
   }
 
   loadState() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.doctorConsultations)) {
+          parsed.doctorConsultations.forEach(c => {
+            if (c.attachments) {
+              ['photos', 'pdfs', 'videos'].forEach(k => {
+                if (Array.isArray(c.attachments[k])) {
+                  c.attachments[k] = c.attachments[k].filter(item => !item.id || !item.id.startsWith('att-'));
+                }
+              });
+            }
+          });
+        }
+        return parsed;
       }
     } catch (e) {
       console.warn('Could not load saved state from localStorage:', e);
@@ -907,7 +938,24 @@ class StateStore {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
       }
     } catch (e) {
-      console.warn('Failed to persist state:', e);
+      console.warn('Failed to persist state, pruning large data URLs:', e);
+      try {
+        const copy = JSON.parse(JSON.stringify(this.state));
+        if (copy.consultations) {
+          copy.consultations.forEach(c => {
+            if (c.attachments) {
+              ['photos', 'pdfs', 'videos'].forEach(k => {
+                (c.attachments[k] || []).forEach(item => {
+                  if (item.url && item.url.startsWith('data:') && item.url.length > 20000) {
+                    item.url = '';
+                  }
+                });
+              });
+            }
+          });
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(copy));
+      } catch (err) {}
     }
   }
 
@@ -1768,8 +1816,61 @@ class StateStore {
       });
     }
 
+    // 4. Save state locally and sync to permanent backend database
+    this.saveState();
+
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/consultations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newConsultation)
+      }).catch(err => console.warn('Consultation server sync notice:', err.message));
+    }
+
     this.notify('CONSULTATION_CREATED', { consultation: newConsultation });
     return newConsultation;
+  }
+
+  deleteConsultation(id) {
+    if (!this.state.consultations) return false;
+    const initialLen = this.state.consultations.length;
+    this.state.consultations = this.state.consultations.filter(c => c.id !== id);
+
+    // Also remove linked citizen timeline entry if present
+    if (this.state.citizenTimeline) {
+      this.state.citizenTimeline = this.state.citizenTimeline.filter(t => t.consultationId !== id);
+    }
+
+    this.saveState();
+
+    if (typeof fetch !== 'undefined') {
+      fetch(`/api/consultations/${id}`, {
+        method: 'DELETE'
+      }).catch(err => console.warn('Failed to delete consultation on server:', err.message));
+    }
+
+    this.notify('CONSULTATION_DELETED', { id });
+    return true;
+  }
+
+  removeConsultationAttachment(consultationId, type, index) {
+    const consultation = (this.state.consultations || []).find(c => c.id === consultationId);
+    if (!consultation || !consultation.attachments || !Array.isArray(consultation.attachments[type])) {
+      return false;
+    }
+    consultation.attachments[type].splice(index, 1);
+    this.saveState();
+
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/consultations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(consultation)
+      }).catch(err => console.warn('Sync consultation attachment removal error:', err.message));
+    }
+
+    this.notify('CONSULTATION_UPDATED', { consultation });
+    return true;
   }
 
   submitDoctorReview(consultationId, citizenId, doctorId, rating, feedback) {

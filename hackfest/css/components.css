@@ -189,6 +189,7 @@
   line-height: 1;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .badge-normal {
@@ -856,3 +857,76 @@
     min-height: 44px; /* WCAG 2.1 AAA touch target accessibility */
   }
 }
+
+/* =========================================================================
+   Unified SVG Icon System
+   ========================================================================= */
+.sehat-icon {
+  display: inline-block;
+  vertical-align: -0.15em;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+  transition: transform 0.15s ease, stroke 0.15s ease;
+}
+
+.nav-icon-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.portal-nav-item .sehat-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.1;
+  color: var(--text-muted);
+}
+
+.portal-nav-item:hover .sehat-icon {
+  color: var(--text-main);
+  transform: scale(1.1);
+}
+
+.portal-nav-item.active .sehat-icon {
+  color: var(--primary-700);
+}
+
+[data-theme="dark"] .portal-nav-item.active .sehat-icon {
+  color: var(--primary-300);
+}
+
+.role-pill-btn .sehat-icon,
+.mobile-nav-btn .sehat-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 0.35rem;
+  vertical-align: -2px;
+}
+
+.icon-btn .sehat-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.card-title .sehat-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--primary-600);
+  vertical-align: -3px;
+  margin-right: 0.35rem;
+}
+
+.btn .sehat-icon {
+  width: 16px;
+  height: 16px;
+  vertical-align: -2px;
+  margin-right: 0.35rem;
+}
+

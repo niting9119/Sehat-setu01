@@ -439,6 +439,21 @@ async function updateAshaTaskStatus(taskId, status) {
   }
 }
 
+async function deleteConsultationFromDb(consultationId) {
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase
+      .from('consultations')
+      .delete()
+      .eq('id', consultationId);
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error('Supabase deleteConsultation notice:', err.message);
+    return false;
+  }
+}
+
 module.exports = {
   initSupabase,
   isSupabaseActive,
@@ -454,6 +469,7 @@ module.exports = {
   insertHealthReportToDb,
   getAllConsultations,
   insertConsultationToDb,
+  deleteConsultationFromDb,
   getAllReferrals,
   insertReferralToDb,
   getAllAshaTasks,

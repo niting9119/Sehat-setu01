@@ -195,11 +195,11 @@ async function runTests() {
     const appJs = fs.readFileSync('hackfest/js/app.js', 'utf8');
     assert('Canvas client-side image compression implemented in app.js', appJs.includes('compressImage('));
 
-    // 11. STATUTORY LEGAL & SURVEILLANCE DISCLAIMER (STEP 4)
-    console.log('\n--- 11. STATUTORY LEGAL DISCLAIMER (STEP 4) ---');
-    assert('Login page contains Statutory Medical Disclaimer', loginHtml.includes('Statutory Disclaimer'));
-    assert('Signup page contains Statutory Medical Disclaimer', signupHtml.includes('Statutory Disclaimer'));
-    assert('App footer contains Statutory Medical Disclaimer', appJs.includes('Statutory Medical & Surveillance Disclaimer'));
+    // 11. STATUTORY LEGAL & SURVEILLANCE DISCLAIMER (REMOVED PER USER REQUEST)
+    console.log('\n--- 11. STATUTORY LEGAL DISCLAIMER (REMOVED) ---');
+    assert('Login page disclaimer removed per user request', !loginHtml.includes('Statutory Disclaimer'));
+    assert('Signup page disclaimer removed per user request', !signupHtml.includes('Statutory Disclaimer'));
+    assert('App footer disclaimer removed per user request', !appJs.includes('Statutory Medical & Surveillance Disclaimer'));
 
     // 12. DATABASE & CLOUD HEALTH CHECK ENDPOINTS (STEP 5)
     console.log('\n--- 12. CLOUD HEALTH CHECK & DB STATUS (STEP 5) ---');
