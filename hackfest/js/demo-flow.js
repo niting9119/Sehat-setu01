@@ -72,7 +72,7 @@ window.SehatDemoFlow = {
       title: '7. Patient Review Queue',
       desc: 'Inspect patient C10291 (Rahul Sharma) in consultation list.',
       action: () => {
-        window.SehatState.setRole('doctor', 'patients');
+        window.SehatState.setRole('doctor', 'dashboard');
       }
     },
     {

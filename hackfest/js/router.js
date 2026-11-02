@@ -98,7 +98,7 @@ class SehatRouter {
     }
 
     this.currentRoute = path;
-    const mergedParams = { ...(params || {}) };
+    const mergedParams = { subView, ...(params || {}) };
     if (queryPart) {
       const searchParams = new URLSearchParams(queryPart);
       for (const [key, val] of searchParams.entries()) {
@@ -106,6 +106,7 @@ class SehatRouter {
       }
     }
     this.currentParams = mergedParams;
+    this.currentSubView = subView;
 
     // 3. Synchronize State Store (Role, Tab and SubView)
     window.SehatState.state.currentRole = role;
@@ -136,7 +137,7 @@ class SehatRouter {
     // -------------------------------------------------------------
     if (normalized === '/doctor/dashboard' || normalized === '/doctor') return { role: 'doctor', tab: 'dashboard', subView: 'queue', params: {} };
     if (normalized === '/doctor/profile') return { role: 'doctor', tab: 'profile', params: {} };
-    if (normalized === '/doctor/patients') return { role: 'doctor', tab: 'dashboard', subView: 'patients_list', params: {} };
+    if (normalized === '/doctor/patients') return { role: 'doctor', tab: 'dashboard', subView: 'queue', params: {} };
     if (normalized === '/doctor/register-patient' || normalized === '/doctor/register') return { role: 'doctor', tab: 'dashboard', subView: 'register_patient', params: {} };
     if (normalized === '/doctor/referrals') return { role: 'doctor', tab: 'dashboard', subView: 'referrals', params: {} };
     if (normalized === '/doctor/consultations') return { role: 'doctor', tab: 'dashboard', subView: 'consultations_list', params: {} };

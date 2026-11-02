@@ -1,11 +1,12 @@
 {
-  "name": "hackthon",
+  "name": "sehat-setu-app",
   "version": "1.0.0",
-  "private": true,
+  "description": "Sehat Setu — Smart Community Health Monitoring & Early Warning System",
+  "main": "hackfest/server.js",
   "scripts": {
     "start": "node hackfest/server.js",
-    "test": "node test_suite.js",
-    "install:app": "npm --prefix hackfest install"
+    "dev": "node --watch hackfest/server.js",
+    "test": "node test_suite.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

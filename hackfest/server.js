@@ -370,7 +370,15 @@ const mimeTypes = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
+  '.gif': 'image/gif',
   '.pdf': 'application/pdf',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+  '.ogg': 'video/ogg',
+  '.m4v': 'video/x-m4v',
+  '.avi': 'video/x-msvideo',
+  '.mkv': 'video/x-matroska',
   '.ico': 'image/x-icon'
 };
 
@@ -529,13 +537,12 @@ function saveSessions() {
 }
 if (usersChanged) saveUsers();
 
-function readBody(request) {
+function readBody(request, maxBytes = 75 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
     let body = '';
-    // Security: Maximum body limit set to 6MB
     request.on('data', chunk => { 
       body += chunk; 
-      if (body.length > 6 * 1024 * 1024) reject(new Error('Payload too large. Maximum 6MB allowed.')); 
+      if (body.length > maxBytes) reject(new Error('Payload too large. Maximum size limit exceeded.')); 
     });
     request.on('end', () => {
       try { resolve(JSON.parse(body || '{}')); } catch { reject(new Error('Invalid JSON')); }
@@ -841,22 +848,35 @@ async function handleAuth(request, response, requestUrl) {
 
       // Security: Validate file extension
       const ext = path.extname(fileName).toLowerCase();
-      const ALLOWED_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+      const ALLOWED_EXTS = [
+        '.jpg', '.jpeg', '.png', '.webp', '.gif',
+        '.pdf',
+        '.mp4', '.webm', '.mov', '.ogg', '.m4v', '.avi', '.mkv'
+      ];
       if (!ALLOWED_EXTS.includes(ext)) {
         return sendJson(response, 400, { error: `File type '${ext}' is not permitted. Allowed: ${ALLOWED_EXTS.join(', ')}` });
       }
 
       // Security: Validate MIME type
-      const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-      if (!ALLOWED_MIMES.includes(mimeType.toLowerCase())) {
+      const ALLOWED_MIMES = [
+        'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+        'application/pdf',
+        'video/mp4', 'video/webm', 'video/quicktime', 'video/ogg', 'video/x-m4v', 'video/avi', 'video/x-msvideo', 'video/x-matroska'
+      ];
+      const isMimePermitted = ALLOWED_MIMES.includes(mimeType.toLowerCase()) || 
+                              mimeType.toLowerCase().startsWith('image/') || 
+                              mimeType.toLowerCase().startsWith('video/') || 
+                              mimeType.toLowerCase() === 'application/pdf';
+      if (!isMimePermitted) {
         return sendJson(response, 400, { error: `MIME type '${mimeType}' is not allowed.` });
       }
 
       const buffer = Buffer.from(fileBase64.replace(/^data:[^;]+;base64,/, ''), 'base64');
       
-      // Security: Enforce 5MB limit on decoded buffer
-      if (buffer.length > 5 * 1024 * 1024) {
-        return sendJson(response, 400, { error: 'File size exceeds maximum permitted limit of 5MB.' });
+      // Enforce 50MB limit on decoded buffer to support medical video uploads
+      const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+      if (buffer.length > MAX_UPLOAD_BYTES) {
+        return sendJson(response, 400, { error: 'File size exceeds maximum permitted limit of 50MB.' });
       }
 
       let cloudUrl = null;
@@ -957,21 +977,38 @@ async function handleAuth(request, response, requestUrl) {
         id: data.id || `CONS-${Date.now()}`,
         citizenId: data.citizenId || data.patientId || 'C10291',
         citizenName: data.citizenName || data.patientName || 'Patient',
+        patientName: data.patientName || data.citizenName || 'Patient',
+        patientAge: data.patientAge || data.age || 32,
+        patientGender: data.patientGender || data.gender || 'Male',
+        patientZone: data.patientZone || data.zone || 'Zone C',
         doctorId: session?.user?.id || data.doctorId || 'DR-1004',
         doctorName: session?.user?.name || data.doctorName || 'Dr. Arishta Sharma',
+        facility: data.facility || 'Urban Community Health Centre (UCHC-4)',
         chiefComplaint: data.chiefComplaint || 'Clinical Consultation',
         symptoms: data.symptoms || [],
-        clinicalNotes: data.clinicalNotes || data.notes || '',
-        advice: data.advice || '',
+        duration: data.duration || '1 Day',
+        medicalHistory: data.medicalHistory || '',
+        vitals: data.vitals || { bp: '120/80', pulse: '76 bpm', temp: '98.6 °F', spo2: '99%' },
+        observations: data.observations || '',
+        analysis: data.analysis || '',
+        diagnosis: data.diagnosis || 'Clinical Health Assessment',
+        recommendedTests: data.recommendedTests || '',
+        clinicalNotes: data.clinicalNotes || data.notes || data.observations || '',
+        advice: data.advice || data.analysis || '',
         medicines: data.medicines || [],
         followUpDate: data.followUpDate || '24 August',
         attachments: data.attachments || { photos: [], pdfs: [], videos: [] },
         outcome: data.outcome || 'Under Treatment',
         date: data.date || new Date().toISOString(),
-        createdAt: new Date().toISOString()
+        createdAt: data.createdAt || new Date().toISOString()
       };
 
-      consultations.unshift(consultation);
+      const existingIndex = consultations.findIndex(c => c.id === consultation.id);
+      if (existingIndex >= 0) {
+        consultations[existingIndex] = consultation;
+      } else {
+        consultations.unshift(consultation);
+      }
       saveConsultations();
 
       // Cloud Database Sync
@@ -989,6 +1026,26 @@ async function handleAuth(request, response, requestUrl) {
     } catch (e) {
       return sendJson(response, 400, { error: e.message });
     }
+  }
+
+  if (requestUrl.pathname.startsWith('/api/consultations/') && request.method === 'DELETE') {
+    const consId = requestUrl.pathname.split('/api/consultations/')[1];
+    if (!consId) {
+      return sendJson(response, 400, { success: false, error: 'Consultation ID is required' });
+    }
+    const initialLen = consultations.length;
+    consultations = consultations.filter(c => c.id !== consId);
+    saveConsultations();
+
+    if (db.isSupabaseActive()) {
+      db.deleteConsultationFromDb(consId).catch(() => {});
+    }
+
+    return sendJson(response, 200, {
+      success: true,
+      message: `Consultation dossier ${consId} deleted successfully`,
+      id: consId
+    });
   }
 
   // --------------------------------------------------------------------------
